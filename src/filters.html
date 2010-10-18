@@ -1,0 +1,293 @@
+<script type="text/javascript">
+var addFilter = function(){
+	var $id = $('#new_filter_form');
+	var filterVars = getFilterValues($id);
+	$.post('/filters',
+		   'action=add&data=' + JSON.stringify(filterVars),
+		   function(data){
+			if(data.status === 'success'){
+				notify($id.find('span.notify'), data.status, 'green');
+				insertFilter(data.filter);
+			} else {
+				notify($id.find('span.notify'), data.status, 'red');
+			}
+		   },
+		   'json');
+}
+
+var updateFilter = function($id){
+	var filterVars = getFilterValues($id);
+	$.post('/filters',
+		   'action=update&data=' + JSON.stringify(filterVars),
+		   function(data){
+			if(data.status === 'success'){
+				fillInFilter($id, data.filter);
+				
+				toggleShow($id);
+				notify($id.find('span.display'), data.status, 'green');
+			} else {
+				notify($id.find('span.notify'), data.status, 'red');
+			}
+		   },
+		   'json');
+}
+
+var enableFilter = function($id){
+	var filterVars = {
+					  'old_title' : $id.find('input[name=old_title]').val(),
+					  'enabled' : testCheckBox($id.find('input[name=enabled]'))
+					  };
+	$.post('/filters',
+		   'action=update&data=' + JSON.stringify(filterVars),
+		   function(data){
+			if(data.status === 'success'){
+				notify($id.find('span.display'), data.status, 'green');
+				// Do nothing
+				//$('#result').html('<h3>' + data.status + '</h3>');
+			} else {
+				notify($id.find('span.display'), data.status, 'red');
+			}
+		   },
+		   'json');
+}
+
+var deleteFilter = function($id){
+	var filterVars = {
+					  'title' : $id.find('input[name=old_title]').val()
+					  };
+	$.post('/filters',
+		   'action=delete&data=' + JSON.stringify(filterVars),
+		   function(data){
+			if(data.status === 'success'){
+				$id.remove();
+				//notify($('#new_filter_form').find('span.notify'), data.status, 'green');
+			} else {
+				notify($id.find('span.notify'), data.status, 'red');
+			}
+		   },
+		   'json');
+}
+
+var listFilters = function(){
+	var filterVars = {};
+	$.post('/filters',
+		   'action=list&data=' + JSON.stringify(filterVars),
+		   function(data){
+			if(data.status === 'success'){
+				for ( var i = 0; i < filterCount; i++ ){
+					$('#f' + i).remove();
+				}
+				filterCount = 0;
+				
+				for ( var i in data.filters ){
+					insertFilter(data.filters[i]);
+				}
+				
+			} else {
+				notify($('#new_filter_form'), data.status, 'red');
+			}
+		   },
+		   'json');
+}
+
+var listFeeds = function(callback){
+	$.post('/feeds',
+	   'action=list',
+	   function(data){
+		if(data.status === 'success'){
+			for ( var i in data.feeds ){
+				var feed = '<li><input type="checkbox" value="' + data.feeds[i].url + '" /> ' + data.feeds[i].url + '</li>';
+				$('ul.feed_list').append(feed);
+				//$('#filter_template ul.feed_list').append(feed);
+			}
+			
+			if ( callback ){
+				callback();
+			}
+
+		} else {
+			notify($('#new_filter_form').find('span.notify'), data.status, 'red');
+		}
+	   },
+	   'json');
+}
+
+var testCheckBox = function(s){
+	if ( $(s).is(':checked') ){
+		return 'TRUE';
+	} else {
+		return 'FALSE';
+	}
+}
+
+var toggleShow = function($id){
+	toggle($id.find('div.edit'));
+	toggle($id.find('span.display'));
+}
+
+var toggle = function($id){
+	if ( $id.is(':hidden') ){
+		$id.show();
+	} else {
+		$id.hide();
+	}
+}
+
+var notify = function($id, message, color){
+	
+	$id.data('bt-content-orig', '');
+	//$id.attr("title", message);
+	$id.bt(message, {
+		trigger: 'none',
+		fill: color,
+		cssStyles: {color: '#FFF'},
+		});
+	$id.btOn();
+	
+}
+
+var getFilterValues = function($id){
+	var filterVars = {};
+	
+	$id.find('input').not('ul.feed_list input').not(':button').each(function(){
+			if ( $(this).is(':checkbox') ){
+				filterVars[this.name] = testCheckBox(this);
+			} else {
+				filterVars[this.name] = $(this).val().replace(/\+/g, ':plus-sign:');
+			}
+		});
+	filterVars.feeds = function(){
+		var feeds_checked = [];
+		$id.find('ul.feed_list :checked').each(function(){
+			feeds_checked.push($(this).val().replace(/=/g, ':equal-sign:'));
+		});
+		
+		return JSON.stringify(feeds_checked);
+	  }();
+	
+	return filterVars;
+}
+
+var insertFilter = function(data){
+	var id = 'f' + filterCount;
+
+	var newFilter = document.getElementById('filter_template').cloneNode(true);
+	newFilter.id = id;
+	newFilter.style.display = 'none';
+
+	$('#new_filter_form').before(newFilter);
+	filterCount++;
+	
+	$id = $('#' + id);
+	fillInFilter($id, data);
+
+	$id.slideDown(400)
+	
+	return id;
+}
+
+var fillInFilter = function($id, data){
+	$id.find('span.display span').text(data.title);
+	for (var i in data){
+		if (data[i] === 'TRUE' || data[i] === 'FALSE'){
+			if (data[i] === 'TRUE'){
+				$id.find('input[name=' + i + ']').attr('checked', true);
+				if ( i !== 'enabled' ){ $id.find('input[name=' + i + ']').change(); }
+			}
+		} else if ( i === 'feeds' ){
+			var feeds = JSON.parse(data[i]);
+			$id.find('ul.feed_list input').each( function(){
+				for (var i in feeds){
+					if ( $(this).val() === feeds[i] ){
+						$(this).attr('checked', true);
+						return;
+					}
+				}
+			} );
+		} else {
+			$id.find('input[name=' + i + ']').val(data[i]);
+		}
+	}
+	$id.find('input[name=old_title]').val(data.title);
+	$id.find(':button').each(function(){
+		$(this).data('pli', $id);
+	});
+	$id.find('input[name=enabled]').data('pli', $id);
+}
+
+var filterCount = 0;
+$(document).ready(function(){
+	// Add tips for the new filter input
+	$('#new_filter_form input').not('ul.feed_list input').bt();
+	
+	// Add event handlers for everything.  Most are delegated at the bubble-up stage.
+	$('#filters').delegate(':checkbox[name=stop_found]', 'change', function(){
+			if($(this).is(':checked')){
+				$(this).parents('li').find('div.tv :checked').each(function(){
+					$(this).attr('checked', false);
+					$(this).change();
+				});
+			}
+		});
+	$('#filters').delegate(':checkbox[name=tv]', 'change', function(){
+			toggle($(this).parents('div.tv').find('p'));
+			if($(this).is(':checked')){
+				$(this).parents('li').find(':checkbox[name=stop_found]').attr('checked', false);
+			}
+		});
+	$('#filters').delegate(':checkbox[name=enabled]', 'change', function(){
+			enableFilter($(this).data('pli'));
+		});
+	$('#filters').delegate(':button[value=Update]', 'click', function(){
+			updateFilter($(this).data('pli'));
+		});
+	$('#filters').delegate(':button[value=Delete]', 'click', function(){
+			deleteFilter($(this).data('pli'));
+		});
+	$('#filters').delegate(':button[value=Cancel]', 'click', function(){
+			toggleShow($(this).data('pli'));
+		});
+	$('#filters').delegate(':button[value=Edit]', 'click', function(){
+			toggleShow($(this).data('pli'));
+		});
+	$('#new_filter_form').find('input[value=Add filter]').bind('click', function(){ addFilter(); });
+	
+	// Grab the list of feeds, then grab the list of filters.
+	listFeeds(listFilters);
+});
+</script>
+<ul id="filters" style="height: 100%">
+	<li id="new_filter_form">Add a new filter:<span class="display"></span>
+		<p>Title : <input type="text" name="title" title="The filter Title must be unique." /></p>
+		<p>Filter 1 : <input type="text" name="filter1" title="You should be as specific as possible.  While a blank filter is permissible, you will match EVERY link entry in an RSS feed."/> Regex? <input type="checkbox" name="regex1" /></p>
+		<p>Filter 2 : <input type="text" name="filter2" title="This filter is used as a secondary check if the feed is set to 'follow links'.  When the link is loaded, the page is searched for this term.  Typical use case could be an IMDB link to make sure you have the right movie." /> Regex? <input type="checkbox" name="regex2" /></p>
+		<p>Feeds : <ul class="feed_list"></ul></p>
+		<p>Link Types : <input type="text" name="link_types" title="Link types to permit to look for.  If you have multiple, they must be | delimited.  For example: megaupload|hotfile" /></p>
+		<p>Disable when found : <input type="checkbox" name="stop_found"  checked="checked" title="Does exactly what it says.  If there is a positive match, and links are found this filter will be disabled." /></p>
+		<div class="tv">TV : <input type="checkbox" name="tv" />
+			<p style="display: none;">Last : <input type="text" name="tv_last" title="This field should be either a season and episode number (formatted as 'S01E01') or a date (formatted as '2010/10/30').  TV episodes that come after the designated 'last' will be downloaded. Optional." /></p></div>
+		<p>Auto start in jDownloader : <input type="checkbox" name="autostart" checked="checked" title="All matching links will be added to the linkgrabber.  If this is checked, they will also be downloaded."/></p>
+		<span class="notify"><input type="button" value="Add filter" /></span>
+		
+	</li>
+
+	<li id="filter_template" style="display: none;"><span class="display"><input type="checkbox" name="enabled" /> <span></span>
+		<input type="button" value="Edit" /></span>
+	<div class="edit"  style="display: none;">
+		<p>Title : <input type="text" name="title" value=""/><input type="hidden" name="old_title" value="" /></p>
+		<p>Filter : <input type="text" name="filter1" value="" />
+		Regex? <input type="checkbox" name="regex1" /></p>
+		<p>Filter : <input type="text" name="filter2" value="" />
+		Regex? <input type="checkbox" name="regex2" /></p>
+		<p>Feeds : <ul class="feed_list"></ul></p>
+		<p>Link Types : <input type="text" name="link_types" value=""/></p>
+		<p>Disable when found : <input type="checkbox" name="stop_found"  /></p>
+		<div class="tv">TV : <input type="checkbox" name="tv" />
+			<p style="display: none;">Last : <input type="text" name="tv_last" /></p></div>
+		<p>Auto start in jDownloader : <input type="checkbox" name="autostart" /></p>
+		<span class="notify"><input type="button" value="Update" />
+			<input type="button" value="Delete" />
+			<input type="button" value="Cancel" /></span>
+	</div>
+	</li>
+</ul>

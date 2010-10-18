@@ -1,0 +1,39 @@
+<script type="text/javascript">
+var updateConfig = function()\{
+	var configVars = \{
+					  'port' : $('#port').val(),
+					  'jd_address' : $('#jd_address').val(),
+					  'jd_port' : $('#jd_port').val()
+					  \};
+	$.post('/config',
+		   'action=update&data=' + JSON.stringify(configVars),
+		   function(data)\{
+				if( data.status === 'success' )\{
+					notify($('span.notify'), data.status, 'green');
+				\} else \{
+					notify($('span.notify'), data.status, 'red');
+				\}
+		   \},
+		   'json');
+\}
+
+var notify = function($id, message, color)\{
+	
+	$id.data('bt-content-orig', '');
+	//$id.attr("title", message);
+	$id.bt(message, \{
+		trigger: 'none',
+		fill: color,
+		cssStyles: \{color: '#FFF'\},
+		\});
+	$id.btOn();
+\}
+
+$(document).ready(function()\{
+	$('input').bt();
+\});
+</script>
+<p>jDlBot http server port: <input type="text" id="port" value="{ $port }" title="If you modify this, you will need to restart jDlBot."/></p>
+<p>jDownloader Web Interface address: <input type="text" id="jd_address" value="{ $jd_address }" title="Include username/pass if necessary.  Note that this is the Web Interface and not remote control." /></p>
+<p>jDownloader Web Interface port: <input type="text" id="jd_port" value="{ $jd_port }" /></p>
+<span class="notify"><input type="button" onclick="updateConfig();" value="Update Configuration" /></span>

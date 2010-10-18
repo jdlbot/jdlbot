@@ -1,0 +1,229 @@
+<script type="text/javascript">
+var addFeed = function(){
+	var $id = $('#new_feed_form');
+	var feedVars = getFeedValues($id);
+	
+	$.post('/feeds',
+		   'action=add&data=' + JSON.stringify(feedVars),
+		   function(data){
+			if(data.status === 'success'){
+				insertFeed(data);
+				notify($id.find('span.notify'), data.status, 'green');
+			} else {
+				notify($id.find('span.notify'), data.status, 'red');
+			}
+		   },
+		   'json');
+}
+
+var updateFeed = function($id){
+	var feedVars = getFeedValues($id);
+	
+	$.post('/feeds',
+		   'action=update&data=' + JSON.stringify(feedVars),
+		   function(data){
+			if(data.status === 'success'){
+				$id.find('span.display span').html('<a href="http://' + data.url + '">' + data.url + ' -- Interval: ' + data.interval + '</a>');
+				fillInFeed($id, data);
+				toggleShow($id);
+				notify($id.find('span.display'), data.status, 'green');
+			} else {
+				notify($id.find('span.notify'), data.status, 'red');
+			}
+		   },
+		   'json');
+}
+
+var enableFeed = function($id){
+	var feedVars = {
+					  'url' : $id.find('input[name=old_url]').val().replace(/=/g, ':equal-sign:'),
+					  'old_url' : $id.find('input[name=old_url]').val().replace(/=/g, ':equal-sign:'),
+					  'enabled' : testCheckBox($id.find('input[name=enabled]'))
+					  };
+	$.post('/feeds',
+		   'action=enable&data=' + JSON.stringify(feedVars),
+		   function(data){
+			if(data.status === 'success'){
+				// Do nothing
+			} else {
+				notify($id.find('span.display'), data.status, 'red');
+			}
+		   },
+		   'json');
+}
+
+var deleteFeed = function($id){
+	var feedVars = {
+					  'url' : $id.find('input[name=url]').val().replace(/=/g, ':equal-sign:')
+					  };
+	$.post('/feeds',
+		   'action=delete&data=' + JSON.stringify(feedVars),
+		   function(data){
+			if(data.status === 'success'){
+				//notify($('#new_feed_form').find('span.notify'), data.status, 'green');
+				$id.remove();
+			} else {
+				notify($id.find('span.notify'), data.status, 'red');
+			}
+		   },
+		   'json');
+}
+
+var listFeeds = function(callback){
+	$.post('/feeds',
+	   'action=list',
+	   function(data){
+		if(data.status === 'success'){
+			for ( var i = 0; i < feedCount; i++ ){
+				$('#f' + i).remove();
+			}
+			feedCount = 0;
+			
+			for ( var i in data.feeds ){
+				insertFeed(data.feeds[i]);
+			}
+			
+			//var feed = '<li><input type="checkbox" value="' + data.feeds[i].url + '" /> ' + data.feeds[i].url + '</li>';
+			//$('ul.feed_list').append(feed);
+			//$('#filter_template ul.feed_list').append(feed);
+			
+			if ( callback ){
+				callback();
+			}
+
+		} else {
+			notify($('#new_feed_form').find('span.notify'), data.status, 'red');
+		}
+	   },
+	   'json');
+}
+
+var testCheckBox = function(s){
+	if ( $(s).is(':checked') ){
+		return 'TRUE';
+	} else {
+		return 'FALSE';
+	}
+}
+
+var toggleShow = function($id){
+	if ( $id.find('div.edit').is(':hidden') ){
+		$id.find('div.edit').show();
+	} else {
+		$id.find('div.edit').hide();
+	}
+
+	if ( $id.find('span.display').is(':hidden') ){
+		$id.find('span.display').show();
+	} else {
+		$id.find('span.display').hide();
+	}
+}
+
+var notify = function($id, message, color){
+	
+	$id.data('bt-content-orig', '');
+	//$id.attr("title", message);
+	$id.bt(message, {
+		trigger: 'none',
+		fill: color,
+		cssStyles: {color: '#FFF'},
+		});
+	$id.btOn();
+}
+
+var getFeedValues = function($id){
+	var feedVars = {};
+	
+	$id.find('input').not(':button').each(function(){
+			if ( $(this).is(':checkbox') ){
+				feedVars[this.name] = testCheckBox(this);
+			} else {
+				feedVars[this.name] = $(this).val().replace(/=/g, ':equal-sign:')
+			}
+		});
+	
+	return feedVars;
+}
+
+var insertFeed = function(data){
+	var id = 'f' + feedCount;
+
+	var newFeed = document.getElementById('feed_template').cloneNode(true);
+	newFeed.id = id;
+	newFeed.style.display = 'none';
+
+	$('#new_feed_form').before(newFeed);
+	feedCount++;
+	
+	$id = $('#' + id);
+	fillInFeed($id, data);
+
+	$id.slideDown(400)
+	
+	return id;
+}
+
+var fillInFeed = function($id, data){
+	$id.find('span.display span').html('<a href="http://' + data.url + '">' + data.url + ' -- Interval: ' + data.interval + '</a>');
+	for (var i in data){
+		if (data[i] === 'TRUE' || data[i] === 'FALSE'){
+			if (data[i] === 'TRUE'){ $id.find('input[name=' + i + ']').attr('checked', true); }
+		} else {
+			$id.find('input[name=' + i + ']').val(data[i]);
+		}
+	}
+	$id.find('input[name=old_url]').val(data.url);
+	$id.find('input').each(function(){
+		$(this).data('pli', $id);
+	});
+}
+
+var feedCount = 0;
+$(document).ready(function(){
+	$('#new_feed_form input').bt();
+	
+	$('#new_feed_form').find(':button[value=Add feed]').bind('click', function(){
+			addFeed();
+		});
+	$('#feeds').delegate(':checkbox[name=enabled]', 'change', function(){
+			enableFeed($(this).data('pli'));
+		});
+	$('#feeds').delegate(':button[value=Edit]', 'click', function(){
+			toggleShow($(this).data('pli'));
+		});
+	$('#feeds').delegate(':button[value=Update]', 'click', function(){
+			updateFeed($(this).data('pli'));
+		});
+	$('#feeds').delegate(':button[value=Delete]', 'click', function(){
+			deleteFeed($(this).data('pli'));
+		});
+	$('#feeds').delegate(':button[value=Cancel]', 'click', function(){
+			toggleShow($(this).data('pli'));
+		});
+	
+	listFeeds();
+});
+
+</script>
+<ul id="feeds">
+	<li id="new_feed_form">Add a new feed:
+		<p>Url : <input type="text" name="url" title="The url must be unique." /></p>
+		<p>Interval : <input type="text" name="interval" value="60" title="The interval in minutes between RSS feed checks.  Something 60 or over is usually appropriate." /></p>
+		<p>Follow Links : <input type="checkbox" name="follow_links" title="If checked, the link in the RSS item will be followed and the page scraped for links to add to JD" /></p>
+		<span class="notify"><input type="button" value="Add feed" /></span>
+	</li>
+	<li id="feed_template" style="display: none;"><span class="display"><input type="checkbox" name="enabled" />
+		<span></span>
+	<input type="button" value="Edit" /></span>
+	<div class="edit"  style="display: none;">
+		<p>Url : <input type="text" name="url" value=""/><input type="hidden" name="old_url" value="" /></p>
+		<p>Interval : <input type="text" name="interval" value="" /></p> 
+		<p>Follow Links : <input type="checkbox" name="follow_links" /></p>
+		<span class="notify"><input type="button" value="Update" />
+			<input type="button" value="Delete" />
+			<input type="button" value="Cancel" /></span>
+	</div>
+	</li>
+</ul>
+

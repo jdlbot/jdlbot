@@ -1,0 +1,71 @@
+/*
+      Created by Keith Donegan of Code-Sucks.com
+	  
+	  E-Mail: Keithdonegan@gmail.com
+	  
+	  You can do whatever you want with these layouts,
+	  but it would be greatly appreciated if you gave a link
+	  back to http://www.code-sucks.com
+	  
+*/
+
+* { padding: 0; margin: 0; }
+
+body {
+ font-family: Helvetica, Arial, sans-serif;
+ font-size: 13px;
+}
+#wrapper { 
+ margin: 0 auto;
+ width: 922px;
+}
+#faux {
+ /*background: url(faux-3-2-col.gif);*/
+ margin-bottom: 10px;
+ overflow: auto; /* Paul O Brien Fix for IE www.pmob.co.uk */
+ width: 100%
+}
+#header {
+ color: #333;
+ width: 902px;
+ padding: 10px;
+ height: 152px;
+ margin: 10px 0px 0px 0px;
+ /*background: #ABBEBE;*/
+}
+#leftcolumn { 
+ display: inline;
+ color: #333;
+ margin: 10px;
+ padding: 0px;
+ width: 195px;
+ float: left;
+}
+#rightcolumn { 
+ float: right;
+ color: #333;
+ margin: 10px;
+ padding: 0px;
+ width: 683px;
+ display: inline;
+ position: relative;
+}
+.clear { clear: both; background: none; }
+
+ul {
+	list-style: none;
+}
+
+div#rightcolumn p {
+	margin-bottom: 4px;
+	margin-top: 4px;
+}
+
+li {
+	padding: 5px;
+}
+
+
+/*div.hiddenEdit {*/
+/*	display: none;*/
+/*}*/

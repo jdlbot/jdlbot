@@ -1,0 +1,56 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<title>jDlBot! : { $title }</title>
+<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+<script type="text/javascript" src="bt.js"></script>
+<link rel="stylesheet" type="text/css" href="main.css" />
+</head>
+
+<body>
+
+   <!-- Begin Wrapper -->
+   <div id="wrapper">
+   
+         <!-- Begin Header -->
+         <div id="header">
+				<img src="logo.png" />
+		 </div>
+		 <!-- End Header -->
+		 
+         <!-- Begin Faux Columns -->
+		 <div id="faux">
+		 
+		       <!-- Begin Left Column -->
+		       <div id="leftcolumn">
+				<ul class="clickList">
+					<li><a href="/">Status</a></li>
+					<li><a href="/config">Configuration</a></li>
+					<li><a href="/feeds">Feeds</a></li>
+					<li><a href="/filters">Filters</a></li>
+				</ul>
+		       </div>
+		       <!-- End Left Column -->
+		 
+		       <!-- Begin Right Column -->
+		       <div id="rightcolumn">
+		       
+					<h1>{ $title }</h1>	 
+					 
+{ $content }
+		       
+			   <div class="clear"></div>
+			   
+		       </div>
+		       <!-- End Right Column -->
+			   
+			   <div class="clear"></div>
+			   
+         </div>	   
+         <!-- End Faux Columns --> 
+		 
+   </div>
+   <!-- End Wrapper -->
+</body>
+</html>
