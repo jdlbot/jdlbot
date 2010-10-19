@@ -6,6 +6,7 @@ sub loadSupportFiles {
 	%templates = ();
 	$templates{'base'} = Text::Template->new(TYPE => 'STRING',  SOURCE => PAR::read_file('base.html'));
 	$templates{'config'} = Text::Template->new(TYPE => 'STRING',  SOURCE => PAR::read_file('config.html'));
+	$templates{'status'} = Text::Template->new(TYPE => 'STRING',  SOURCE => PAR::read_file('status.html'));
 	
 	$static = {};
 	$static->{'filters'} = PAR::read_file('filters.html');
