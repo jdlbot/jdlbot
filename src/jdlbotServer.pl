@@ -458,22 +458,22 @@ $httpd->reg_cb (
    '/' => sub {
 	  my ($httpd, $req) = @_;
 
-	  my $status = <<END;
-<p>Server running on <a href="http://127.0.0.1:$config{'port'}">localhost, port: $config{'port'}</a></p>
-END
+	  my $status;
 
 	  if ( get("http://$config{'jd_address'}:$config{'jd_port'}/") ){
-		$status .= <<END;
-<p>JDownloader Web Interface found at <a href="http://$config{'jd_address'}:$config{'jd_port'}/">$config{'jd_address'}, port: $config{'jd_port'}</a></p>
-END
+		$status = 1
 	  } else {
-		$status .= <<END;
-<p>JDownloader Web Interface NOT found at <a href="http://$config{'jd_address'}:$config{'jd_port'}/">$config{'jd_address'}, port: $config{'jd_port'}</a></p>
-<p>Please check your <a href="/config">configuration</a></p>
-END
+		$status = 0;
 	  }
 
-	  $req->respond ({ content => ['text/html', $templates{'base'}->fill_in(HASH => {'title' => 'Status', 'content' => $status}) ]});
+		my $statusHtml = $templates{'status'}->fill_in(HASH => {'port' => $config{'port'},
+																'jd_address' => $config{'jd_address'},
+																'jd_port' => $config{'jd_port'},
+																'version' => $config{'version'},
+																'check_update' => $config{'check_update'} eq 'TRUE' ? 'true' : 'false'
+																});
+
+	  $req->respond ({ content => ['text/html', $templates{'base'}->fill_in(HASH => {'title' => 'Status', 'content' => $statusHtml}) ]});
    },
    '/config' => sub {
 	  my ($httpd, $req) = @_;

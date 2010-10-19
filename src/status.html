@@ -1,0 +1,53 @@
+<script type="text/javascript">
+var check_update = { $check_update };
+var version = "{ $version }";
+version = [ /([0-9]\{1,\})\.([0-9]\{1,\})\.([0-9]\{1,\})/.exec(version), version ];
+
+$(document).ready(function()\{
+	if ( check_update )\{
+		$('#check_update').html("<h3>Checking for updates...</h3>");
+		
+		$.getJSON("http://twitter.com/statuses/user_timeline.json?screen_name=jdlbot&callback=?",
+				  function(data)\{
+					var highestVersion = version;
+					var checkVersion = function(v, n, c)\{
+						if ( parseInt(v[c]) > parseInt(n[c]) )\{
+							return true;
+						\} else if ( parseInt(v[c]) < parseInt(n[c]) )\{
+							return false;
+						\} else \{
+							if ( v.length <= c + 1 )\{
+								return false;
+							\} else \{
+								return checkVersion(v, n, c + 1);
+							\}
+						\}
+					\}
+					$.each(data, function(i, item)\{
+						if ( item.text.match(/^RELEASE: v/) )\{
+							var newVersion = [/([0-9]\{1,\})\.([0-9]\{1,\})\.([0-9]\{1,\})/.exec(item.text) , item.text];
+							if ( checkVersion(newVersion[0], highestVersion[0] , 1 ))\{
+								highestVersion = newVersion;
+							\}
+						\}
+					\});
+					
+					if ( highestVersion !== version )\{
+						$('#check_update').html("<h3>New Version! " + highestVersion[1] + "</h3>");
+					\} else \{
+						$('#check_update').html("<h3>No new updates</h3>");
+					\}
+				  \});
+	\}
+\});
+
+</script>
+<p>Server running on <a href="http://127.0.0.1:{ $port }">localhost, port: { $port }</a></p>
+{ if ($status){
+	$OUT .= "<p>JDownloader Web Interface found at <a href=\"http://$jd_address:$jd_port/\">$jd_address, port: $jd_port</a></p>";
+} else {
+	$OUT .= "<p>JDownloader Web Interface NOT found at <a href=\"http://$jd_address:$jd_port/\">$jd_address, port: $jd_port</a></p>\n" .
+	"<p>Please check your <a href=\"/config\">configuration</a></p>";
+}}
+
+<p id="check_update"></p>
