@@ -9,6 +9,8 @@ jDlBot is an RSS feed and web scraper that finds and sends links to [jDownloader
 3.   Run.
 4.   Point your browser at [127.0.0.1:10050](http://127.0.0.1:10050/).
 
+If you have problems, please check the [wiki](http://github.com/jdlbot/jdlbot/wiki).
+
 ## Todo
 
 *   Implement some kind of history tracking
