@@ -12,7 +12,8 @@ use Error qw(:try);
 use Path::Class;
 use File::Path qw(make_path remove_tree);
 use Text::Template;
-use XML::RSS;
+#use XML::RSS;
+use XML::Feed;
 use Web::Scraper;
 use LWP::Simple qw($ua get);
 use JSON::XS;
@@ -105,40 +106,40 @@ sub removeWatcher {
 
 sub scrapeRss {
 	my ($url, $feedData, $filters, $follow_links) = @_;
-	my $rss = new XML::RSS;
+	my $rss;
 	my $parseError = 0;
 	try {
-		$rss->parse($feedData);
+		$rss = XML::Feed->parse(\$feedData);
 	} catch Error with {
 		$parseError = 1;
 	};
 	
-	if ( $parseError ){ return; }
+	if ( $parseError || XML::Feed->errstr ){ print STDERR XML::Feed->errstr; return; }
 	
-	foreach my $item ( @{ $rss->{items} } ){
+	foreach my $item ( $rss->entries ){
 		foreach my $filter ( keys %{ $filters } ){
 			my $match = 0;
 			if ( $filters->{$filter}->{'regex1'} eq 'TRUE' ){
 				my $reFilter = $filters->{$filter}->{'filter1'};
-				if ( $item->{title} =~ /$reFilter/ ){
+				if ( $item->title =~ /$reFilter/ ){
 					$match = 1;
 				}
 			} else {
-				if ( index( $item->{title} , $filters->{$filter}->{'filter1'} ) >= 0 ){
+				if ( index( $item->title , $filters->{$filter}->{'filter1'} ) >= 0 ){
 					$match = 1;
 				}
 			}
 			
 			if ($match){
 				if ( $filters->{$filter}->{'tv'} eq 'TRUE' ){
-					if ( checkTvMatch($item->{'title'}, $filters->{$filter}) ){
+					if ( checkTvMatch($item->title, $filters->{$filter}) ){
 						# continue
 					} else {
 						next;
 					}
 				}
 				if ( ! $filters->{$filter}->{'matches'} ){ $filters->{$filter}->{'matches'} = []; }
-				push(@{$filters->{$filter}->{'matches'}}, $item->{'description'});
+				push(@{$filters->{$filter}->{'matches'}}, $item->content->body);
 				
 				if ( $follow_links eq 'TRUE' ){
 					$filters->{$filter}->{'outstanding'} += 1;
@@ -149,7 +150,7 @@ sub scrapeRss {
 						}
 					};
 					
-					http_get( $item->{'link'} , sub {
+					http_get( $item->link , sub {
 							my ($body, $hdr) = @_;
 					  
 							if ($hdr->{Status} =~ /^2/) {
@@ -393,7 +394,11 @@ sub sendToJd {
 	
 	if ($response->is_success){
 		$res = $s->scrape($response->decoded_content);
-		if ( ! $res ){ return; }
+		#  There's a possibility that we could get stuck here if the web interface is unavailable
+		while ( ! keys %$res ){
+			$res = $s->scrape(get("http://$jdInfo/link_adder.tmpl"));
+		}
+		#if ( ! keys %$res ){ return; }
 		my $nexthighest = $res->{packages}->[(scalar @{$res->{packages}}) - 1]->{num};
 		my $nexthighestName = $res->{packages}->[(scalar @{$res->{packages}}) - 1]->{name};
 		
@@ -513,15 +518,15 @@ END
 			my $feedData = get('http://' . $feedParams->{'url'});
 			
 			if( $feedData ){
-				my $rssFeed = new XML::RSS;
+				my $rssFeed;
 				my $parseError = 0;
 				try {
-					$rssFeed->parse($feedData);
+					$rssFeed = XML::Feed->parse(\$feedData);
 				} catch Error with{
 					$parseError = 1;
 				};
 				
-				if( $rssFeed->channel()->{'title'} && $parseError != 1){
+				if( $rssFeed->title && $parseError != 1){
 					my $qh;
 					if ( $req->parm('action') eq 'add' ){
 						$qh = $dbh->prepare(q(INSERT INTO feeds VALUES ( ? , ? , ? , NULL, 'TRUE' )));
