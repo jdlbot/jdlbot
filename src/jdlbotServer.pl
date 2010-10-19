@@ -12,7 +12,6 @@ use Error qw(:try);
 use Path::Class;
 use File::Path qw(make_path remove_tree);
 use Text::Template;
-#use XML::RSS;
 use XML::Feed;
 use Web::Scraper;
 use LWP::Simple qw($ua get);
@@ -31,6 +30,8 @@ $ua->timeout(5);
 	my $directory = "";
 	my $configdir = "";
 	my $configfile = "";
+	
+	my $version = "0.1.1";
 	
 	GetOptions("port=i" => \$port,
 			   "directory=s" => \$directory,
