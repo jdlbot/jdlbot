@@ -18,7 +18,10 @@ use LWP::Simple qw($ua get);
 use JSON::XS;
 use URI::Escape;
 use Getopt::Long;
+use Perl::Version;
 use DBI;
+use DBIx::MultiStatementDo;
+use Moose::Meta::Object::Trait;
 
 require('build.pl');
 
@@ -31,7 +34,7 @@ $ua->timeout(5);
 	my $configdir = "";
 	my $configfile = "";
 	
-	my $version = "0.1.1";
+	my $version = Perl::Version->new("0.1.1");
 	
 	GetOptions("port=i" => \$port,
 			   "directory=s" => \$directory,
@@ -48,6 +51,17 @@ $ua->timeout(5);
 	
 	$dbh = DBI->connect("dbi:SQLite:dbname=$configFile","","");
 	%config = fetchConfig();
+	
+	#if (! $config{'version'}){ $config{'version'} = "0.1.0"; }
+	my $dbVersion = Perl::Version->new($config{'version'});
+	if ( $version->numify > $dbVersion->numify ){
+		print STDERR "Updating config...\n";
+		
+		require 'dbupdate.pl';
+		dbUpdate($dbVersion);
+		
+		print STDERR "Update successful.\n";
+	}
 
 	if( $port ){
 		$config{'port'} = $port;
@@ -74,6 +88,8 @@ sub addWatcher {
 	$watchers->{$url} = AnyEvent->timer(after		=>	5,
 										interval	=>	$interval * 60,
 										cb			=>	sub {
+											print STDERR "Running watcher: " . $url . "\n";
+											
 											my $qh = $dbh->prepare(q( SELECT * FROM filters WHERE enabled='TRUE' AND feeds LIKE ? ));
 											$qh->execute('%"' . $url . '"%');
 											my $filters = $qh->fetchall_hashref('title');
@@ -242,7 +258,7 @@ sub determineTvType {
 		$tv_info->{'info'} = { 's' => $1, 'e' => $2 };
 	} elsif ( $s =~ /(\d{4}).?(\d{2}).?(\d{2})/ ){
 		$tv_info->{'type'} = 'd';
-		$tv_info->{'info'} = { 'd' => "$1$2$3", 's' => "$1.$2.$3" }
+		$tv_info->{'info'} = { 'd' => "$1$2$3", 's' => "$1.$2.$3" };
 	} else {
 		$tv_info = undef;
 	}
@@ -301,8 +317,11 @@ sub findLinks {
 				$qh->execute($filter->{'new_tv_last'}->[0], $filter->{'title'});
 				push(@{$filter->{'new_tv_last_has'}}, $filter->{'new_tv_last'}->[$count]);
 				
+				# Status message?
+				print STDERR "Sending links for filter: " . $filter->{'title'} . "\n";
 				sendToJd($linksToProcess, $filter);
 			} else {
+				print STDERR "Sending links for filter: " . $filter->{'title'} . "\n";
 				sendToJd($linksToProcess, $filter);
 				return;
 			}
@@ -395,12 +414,23 @@ sub sendToJd {
 	
 	if ($response->is_success){
 		$res = $s->scrape($response->decoded_content);
-		#  There's a possibility that we could get stuck here if the web interface is unavailable
-		while ( ! keys %$res ){
+		#  Sometimes the web interface doesn't return right away with an updated linkgrabber queue
+		my $count = 0;
+		my $nexthighest;
+		while ( ! $nexthighest ){
+			if( $count > 10 ){ print STDERR "Failed to parse jDownloader Web Interface output.\n" .
+							  "\tLinks might already be in linkgrabber queue\n" ; return; }
 			$res = $s->scrape(get("http://$jdInfo/link_adder.tmpl"));
+			
+			if( $res->{packages} ){
+				if( $res->{packages}->[(scalar @{$res->{packages}}) - 1]->{num} > $highest ){
+					$nexthighest = $res->{packages}->[(scalar @{$res->{packages}}) - 1]->{num};
+				}
+			}
+			$count++;
 		}
 		#if ( ! keys %$res ){ return; }
-		my $nexthighest = $res->{packages}->[(scalar @{$res->{packages}}) - 1]->{num};
+		 
 		my $nexthighestName = $res->{packages}->[(scalar @{$res->{packages}}) - 1]->{name};
 		
 		while ($nexthighestName eq 'Unchecked'){
@@ -470,7 +500,8 @@ $httpd->reg_cb (
 																'jd_address' => $config{'jd_address'},
 																'jd_port' => $config{'jd_port'},
 																'version' => $config{'version'},
-																'check_update' => $config{'check_update'} eq 'TRUE' ? 'true' : 'false'
+																'check_update' => $config{'check_update'} eq 'TRUE' ? 'true' : 'false',
+																'status' => $status
 																});
 
 	  $req->respond ({ content => ['text/html', $templates{'base'}->fill_in(HASH => {'title' => 'Status', 'content' => $statusHtml}) ]});
