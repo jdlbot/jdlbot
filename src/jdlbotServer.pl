@@ -12,7 +12,7 @@ use Error qw(:try);
 use Path::Class;
 use File::Path qw(make_path remove_tree);
 use Text::Template;
-use XML::Feed;
+use XML::FeedPP;
 use Web::Scraper;
 use LWP::Simple qw($ua get);
 use JSON::XS;
@@ -126,37 +126,38 @@ sub scrapeRss {
 	my $rss;
 	my $parseError = 0;
 	try {
-		$rss = XML::Feed->parse(\$feedData);
+		$rss = XML::FeedPP->new($feedData);
 	} catch Error with {
 		$parseError = 1;
 	};
 	
-	if ( $parseError || XML::Feed->errstr ){ print STDERR XML::Feed->errstr; return; }
+	if ( $parseError ){ print STDERR "Error parsing Feed: " . $url . "\n"; return; }
 	
-	foreach my $item ( $rss->entries ){
+	foreach my $item ( $rss->get_item() ){
+		
 		foreach my $filter ( keys %{ $filters } ){
 			my $match = 0;
 			if ( $filters->{$filter}->{'regex1'} eq 'TRUE' ){
 				my $reFilter = $filters->{$filter}->{'filter1'};
-				if ( $item->title =~ /$reFilter/ ){
+				if ( $item->title() =~ /$reFilter/ ){
 					$match = 1;
 				}
 			} else {
-				if ( index( $item->title , $filters->{$filter}->{'filter1'} ) >= 0 ){
+				if ( index( $item->title() , $filters->{$filter}->{'filter1'} ) >= 0 ){
 					$match = 1;
 				}
 			}
 			
 			if ($match){
 				if ( $filters->{$filter}->{'tv'} eq 'TRUE' ){
-					if ( checkTvMatch($item->title, $filters->{$filter}) ){
+					if ( checkTvMatch($item->title(), $filters->{$filter}) ){
 						# continue
 					} else {
 						next;
 					}
 				}
 				if ( ! $filters->{$filter}->{'matches'} ){ $filters->{$filter}->{'matches'} = []; }
-				push(@{$filters->{$filter}->{'matches'}}, $item->content->body);
+				push(@{$filters->{$filter}->{'matches'}}, $item->description());
 				
 				if ( $follow_links eq 'TRUE' ){
 					$filters->{$filter}->{'outstanding'} += 1;
@@ -167,7 +168,7 @@ sub scrapeRss {
 						}
 					};
 					
-					http_get( $item->link , sub {
+					http_get( $item->link() , sub {
 							my ($body, $hdr) = @_;
 					  
 							if ($hdr->{Status} =~ /^2/) {
@@ -416,10 +417,13 @@ sub sendToJd {
 		$res = $s->scrape($response->decoded_content);
 		#  Sometimes the web interface doesn't return right away with an updated linkgrabber queue
 		my $count = 0;
-		my $nexthighest;
-		while ( ! $nexthighest ){
-			if( $count > 10 ){ print STDERR "Failed to parse jDownloader Web Interface output.\n" .
-							  "\tLinks might already be in linkgrabber queue\n" ; return; }
+		my $nexthighest = $highest;
+		while ( $nexthighest == $highest ){
+			if( $count > 10 ){
+				print STDERR "Failed to parse jDownloader Web Interface output.\n" .
+							  "\tLinks might already be in linkgrabber queue\n" ;
+				return;
+			}
 			$res = $s->scrape(get("http://$jdInfo/link_adder.tmpl"));
 			
 			if( $res->{packages} ){
@@ -557,12 +561,12 @@ $httpd->reg_cb (
 				my $rssFeed;
 				my $parseError = 0;
 				try {
-					$rssFeed = XML::Feed->parse(\$feedData);
+					$rssFeed = XML::FeedPP->new($feedData);
 				} catch Error with{
 					$parseError = 1;
 				};
 				
-				if( $rssFeed->title && $parseError != 1){
+				if( $rssFeed->title() && $parseError != 1){
 					my $qh;
 					if ( $req->parm('action') eq 'add' ){
 						$qh = $dbh->prepare(q(INSERT INTO feeds VALUES ( ? , ? , ? , NULL, 'TRUE' )));
