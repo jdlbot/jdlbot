@@ -42,7 +42,7 @@ $(document).ready(function()\{
 \});
 
 </script>
-<p>Server running on <a href="http://127.0.0.1:{ $port }">localhost, port: { $port }</a></p>
+<p>Server running on <a href="http://127.0.0.1:{ $port }">localhost, port: { $port }</a> , Version { $version }</p>
 { if ($status){
 	$OUT .= "<p>JDownloader Web Interface found at <a href=\"http://$jd_address:$jd_port/\">$jd_address, port: $jd_port</a></p>";
 } else {
