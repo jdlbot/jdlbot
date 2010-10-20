@@ -4,6 +4,7 @@ sub loadSupportFiles {
 	%templates = ();
 	$templates{'base'} = Text::Template->new(TYPE => 'FILE',  SOURCE => 'base.html');
 	$templates{'config'} = Text::Template->new(TYPE => 'FILE',  SOURCE => 'config.html');
+	$templates{'status'} = Text::Template->new(TYPE => 'FILE',  SOURCE => 'status.html');
 	
 	$static = {};
 	open(FILTERSFILE, '<filters.html');

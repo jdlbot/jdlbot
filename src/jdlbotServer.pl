@@ -12,13 +12,16 @@ use Error qw(:try);
 use Path::Class;
 use File::Path qw(make_path remove_tree);
 use Text::Template;
-use XML::RSS;
+use XML::FeedPP;
 use Web::Scraper;
 use LWP::Simple qw($ua get);
 use JSON::XS;
 use URI::Escape;
 use Getopt::Long;
+use Perl::Version;
 use DBI;
+use DBIx::MultiStatementDo;
+use Moose::Meta::Object::Trait;
 
 require('build.pl');
 
@@ -30,12 +33,21 @@ $ua->timeout(5);
 	my $directory = "";
 	my $configdir = "";
 	my $configfile = "";
+	my $versionFlag;
+	
+	my $version = Perl::Version->new("0.1.1");
 	
 	GetOptions("port=i" => \$port,
 			   "directory=s" => \$directory,
-			   "configdir=s" => \$configdir);
+			   "configdir=s" => \$configdir,
+			   "version" => \$versionFlag);
 	
-	if( $directory != "" ){
+	if( $versionFlag ){
+		print STDERR "jDlBot! version $version\n";
+		exit(0);
+	}
+	
+	if( $directory ){
 		chdir($directory);
 	}
 	
@@ -46,6 +58,17 @@ $ua->timeout(5);
 	
 	$dbh = DBI->connect("dbi:SQLite:dbname=$configFile","","");
 	%config = fetchConfig();
+	
+	#if (! $config{'version'}){ $config{'version'} = "0.1.0"; }
+	my $dbVersion = Perl::Version->new($config{'version'});
+	if ( $version->numify > $dbVersion->numify ){
+		print STDERR "Updating config...\n";
+		
+		require 'dbupdate.pl';
+		dbUpdate($dbVersion);
+		
+		print STDERR "Update successful.\n";
+	}
 
 	if( $port ){
 		$config{'port'} = $port;
@@ -72,6 +95,8 @@ sub addWatcher {
 	$watchers->{$url} = AnyEvent->timer(after		=>	5,
 										interval	=>	$interval * 60,
 										cb			=>	sub {
+											print STDERR "Running watcher: " . $url . "\n";
+											
 											my $qh = $dbh->prepare(q( SELECT * FROM filters WHERE enabled='TRUE' AND feeds LIKE ? ));
 											$qh->execute('%"' . $url . '"%');
 											my $filters = $qh->fetchall_hashref('title');
@@ -105,40 +130,41 @@ sub removeWatcher {
 
 sub scrapeRss {
 	my ($url, $feedData, $filters, $follow_links) = @_;
-	my $rss = new XML::RSS;
+	my $rss;
 	my $parseError = 0;
 	try {
-		$rss->parse($feedData);
+		$rss = XML::FeedPP->new($feedData);
 	} catch Error with {
 		$parseError = 1;
 	};
 	
-	if ( $parseError ){ return; }
+	if ( $parseError ){ print STDERR "Error parsing Feed: " . $url . "\n"; return; }
 	
-	foreach my $item ( @{ $rss->{items} } ){
+	foreach my $item ( $rss->get_item() ){
+		
 		foreach my $filter ( keys %{ $filters } ){
 			my $match = 0;
 			if ( $filters->{$filter}->{'regex1'} eq 'TRUE' ){
 				my $reFilter = $filters->{$filter}->{'filter1'};
-				if ( $item->{title} =~ /$reFilter/ ){
+				if ( $item->title() =~ /$reFilter/ ){
 					$match = 1;
 				}
 			} else {
-				if ( index( $item->{title} , $filters->{$filter}->{'filter1'} ) >= 0 ){
+				if ( index( $item->title() , $filters->{$filter}->{'filter1'} ) >= 0 ){
 					$match = 1;
 				}
 			}
 			
 			if ($match){
 				if ( $filters->{$filter}->{'tv'} eq 'TRUE' ){
-					if ( checkTvMatch($item->{'title'}, $filters->{$filter}) ){
+					if ( checkTvMatch($item->title(), $filters->{$filter}) ){
 						# continue
 					} else {
 						next;
 					}
 				}
 				if ( ! $filters->{$filter}->{'matches'} ){ $filters->{$filter}->{'matches'} = []; }
-				push(@{$filters->{$filter}->{'matches'}}, $item->{'description'});
+				push(@{$filters->{$filter}->{'matches'}}, $item->description());
 				
 				if ( $follow_links eq 'TRUE' ){
 					$filters->{$filter}->{'outstanding'} += 1;
@@ -149,7 +175,7 @@ sub scrapeRss {
 						}
 					};
 					
-					http_get( $item->{'link'} , sub {
+					http_get( $item->link() , sub {
 							my ($body, $hdr) = @_;
 					  
 							if ($hdr->{Status} =~ /^2/) {
@@ -240,7 +266,7 @@ sub determineTvType {
 		$tv_info->{'info'} = { 's' => $1, 'e' => $2 };
 	} elsif ( $s =~ /(\d{4}).?(\d{2}).?(\d{2})/ ){
 		$tv_info->{'type'} = 'd';
-		$tv_info->{'info'} = { 'd' => "$1$2$3", 's' => "$1.$2.$3" }
+		$tv_info->{'info'} = { 'd' => "$1$2$3", 's' => "$1.$2.$3" };
 	} else {
 		$tv_info = undef;
 	}
@@ -299,8 +325,11 @@ sub findLinks {
 				$qh->execute($filter->{'new_tv_last'}->[0], $filter->{'title'});
 				push(@{$filter->{'new_tv_last_has'}}, $filter->{'new_tv_last'}->[$count]);
 				
+				# Status message?
+				print STDERR "Sending links for filter: " . $filter->{'title'} . "\n";
 				sendToJd($linksToProcess, $filter);
 			} else {
+				print STDERR "Sending links for filter: " . $filter->{'title'} . "\n";
 				sendToJd($linksToProcess, $filter);
 				return;
 			}
@@ -393,8 +422,26 @@ sub sendToJd {
 	
 	if ($response->is_success){
 		$res = $s->scrape($response->decoded_content);
-		if ( ! $res ){ return; }
-		my $nexthighest = $res->{packages}->[(scalar @{$res->{packages}}) - 1]->{num};
+		#  Sometimes the web interface doesn't return right away with an updated linkgrabber queue
+		my $count = 0;
+		my $nexthighest = $highest;
+		while ( $nexthighest == $highest ){
+			if( $count > 10 ){
+				print STDERR "Failed to parse jDownloader Web Interface output.\n" .
+							  "\tLinks might already be in linkgrabber queue\n" ;
+				return;
+			}
+			$res = $s->scrape(get("http://$jdInfo/link_adder.tmpl"));
+			
+			if( $res->{packages} ){
+				if( $res->{packages}->[(scalar @{$res->{packages}}) - 1]->{num} > $highest ){
+					$nexthighest = $res->{packages}->[(scalar @{$res->{packages}}) - 1]->{num};
+				}
+			}
+			$count++;
+		}
+		#if ( ! keys %$res ){ return; }
+		 
 		my $nexthighestName = $res->{packages}->[(scalar @{$res->{packages}}) - 1]->{name};
 		
 		while ($nexthighestName eq 'Unchecked'){
@@ -452,29 +499,34 @@ $httpd->reg_cb (
    '/' => sub {
 	  my ($httpd, $req) = @_;
 
-	  my $status = <<END;
-<p>Server running on <a href="http://127.0.0.1:$config{'port'}">localhost, port: $config{'port'}</a></p>
-END
+	  my $status;
 
 	  if ( get("http://$config{'jd_address'}:$config{'jd_port'}/") ){
-		$status .= <<END;
-<p>JDownloader Web Interface found at <a href="http://$config{'jd_address'}:$config{'jd_port'}/">$config{'jd_address'}, port: $config{'jd_port'}</a></p>
-END
+		$status = 1
 	  } else {
-		$status .= <<END;
-<p>JDownloader Web Interface NOT found at <a href="http://$config{'jd_address'}:$config{'jd_port'}/">$config{'jd_address'}, port: $config{'jd_port'}</a></p>
-<p>Please check your <a href="/config">configuration</a></p>
-END
+		$status = 0;
 	  }
 
-	  $req->respond ({ content => ['text/html', $templates{'base'}->fill_in(HASH => {'title' => 'Status', 'content' => $status}) ]});
+		my $statusHtml = $templates{'status'}->fill_in(HASH => {'port' => $config{'port'},
+																'jd_address' => $config{'jd_address'},
+																'jd_port' => $config{'jd_port'},
+																'version' => $config{'version'},
+																'check_update' => $config{'check_update'} eq 'TRUE' ? 'true' : 'false',
+																'status' => $status
+																});
+
+	  $req->respond ({ content => ['text/html', $templates{'base'}->fill_in(HASH => {'title' => 'Status', 'content' => $statusHtml}) ]});
    },
    '/config' => sub {
 	  my ($httpd, $req) = @_;
 	  if( $req->method() eq 'GET' ){
+		
+		
 		my $configHtml = $templates{'config'}->fill_in(HASH => {'port' => $config{'port'},
 																'jd_address' => $config{'jd_address'},
-																'jd_port' => $config{'jd_port'} });
+																'jd_port' => $config{'jd_port'},
+																'check_update' => $config{'check_update'} eq 'TRUE' ? 'checked="checked"' : ''
+																});
 		$req->respond ({ content => ['text/html', $templates{'base'}->fill_in(HASH => {'title' => 'Configuration', 'content' => $configHtml}) ]});
 	  } elsif ( $req->method() eq 'POST' ){
 		if( $req->parm('action') eq 'update' ){
@@ -513,15 +565,15 @@ END
 			my $feedData = get('http://' . $feedParams->{'url'});
 			
 			if( $feedData ){
-				my $rssFeed = new XML::RSS;
+				my $rssFeed;
 				my $parseError = 0;
 				try {
-					$rssFeed->parse($feedData);
+					$rssFeed = XML::FeedPP->new($feedData);
 				} catch Error with{
 					$parseError = 1;
 				};
 				
-				if( $rssFeed->channel()->{'title'} && $parseError != 1){
+				if( $rssFeed->title() && $parseError != 1){
 					my $qh;
 					if ( $req->parm('action') eq 'add' ){
 						$qh = $dbh->prepare(q(INSERT INTO feeds VALUES ( ? , ? , ? , NULL, 'TRUE' )));
