@@ -33,14 +33,21 @@ $ua->timeout(5);
 	my $directory = "";
 	my $configdir = "";
 	my $configfile = "";
+	my $versionFlag;
 	
 	my $version = Perl::Version->new("0.1.1");
 	
 	GetOptions("port=i" => \$port,
 			   "directory=s" => \$directory,
-			   "configdir=s" => \$configdir);
+			   "configdir=s" => \$configdir,
+			   "version" => \$versionFlag);
 	
-	if( $directory != "" ){
+	if( $versionFlag ){
+		print STDERR "jDlBot! version $version\n";
+		exit(0);
+	}
+	
+	if( $directory ){
 		chdir($directory);
 	}
 	
