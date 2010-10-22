@@ -53,10 +53,11 @@ $ua->timeout(5);
 	
 	my $configFile = checkConfigFile();
 	unless ( $configFile ){
-		die "Could not open config file.\n";
+		die "Could not find config file.\n";
 	}
 	
-	$dbh = DBI->connect("dbi:SQLite:dbname=$configFile","","");
+	$dbh = DBI->connect("dbi:SQLite:dbname=$configFile","","") or
+		die "Could not open config file.\n";
 	%config = fetchConfig();
 	
 	#if (! $config{'version'}){ $config{'version'} = "0.1.0"; }
@@ -78,7 +79,7 @@ $ua->timeout(5);
 loadSupportFiles();
 
 sub fetchConfig {
-	my $configArrayRef = $dbh->selectall_arrayref( q( SELECT param, value FROM config ) ) or die "Can't fetch configuration";
+	my $configArrayRef = $dbh->selectall_arrayref( q( SELECT param, value FROM config ) ) or die "Can't fetch configuration\n";
 	
 	my %tempConfig = ();
 	foreach my $cfgParam (@$configArrayRef){
@@ -108,7 +109,8 @@ sub addWatcher {
 													if ($hdr->{Status} =~ /^2/) {
 													   scrapeRss($url, $body, $filters, $follow_links);
 													} else {
-													   print STDERR "error, $hdr->{Status} $hdr->{Reason}\n";
+													   print STDERR "HTTP error, $hdr->{Status} $hdr->{Reason}\n" .
+																	"\tFailed to retrieve feed: $url\n";
 													}
 												});
 										});
@@ -199,7 +201,8 @@ sub scrapeRss {
 									push(@{$filters->{$filter}->{'matches'}}, $body);
 								}
 							} else {
-							   print STDERR "error, $hdr->{Status} $hdr->{Reason}\n";
+							   print STDERR "HTTP error, $hdr->{Status} $hdr->{Reason}\n" .
+											"\tFailed to follow link: " . $item->link() . " for feed: $url\n";
 							}
 							$filters->{$filter}->{'outstanding'} -= 1;
 							$return_outstanding->();
@@ -339,6 +342,8 @@ sub findLinks {
 	}
 }
 
+#  Old link adding code using the remote control jDownloader interface.
+#
 #sub sendToJd {
 #	my ( $links, $filter ) = @_;
 #	
