@@ -53,10 +53,11 @@ $ua->timeout(5);
 	
 	my $configFile = checkConfigFile();
 	unless ( $configFile ){
-		die "Could not open config file.\n";
+		die "Could not find config file.\n";
 	}
 	
-	$dbh = DBI->connect("dbi:SQLite:dbname=$configFile","","");
+	$dbh = DBI->connect("dbi:SQLite:dbname=$configFile","","") or
+		die "Could not open config file.\n";
 	%config = fetchConfig();
 	
 	#if (! $config{'version'}){ $config{'version'} = "0.1.0"; }
@@ -78,7 +79,7 @@ $ua->timeout(5);
 loadSupportFiles();
 
 sub fetchConfig {
-	my $configArrayRef = $dbh->selectall_arrayref( q( SELECT param, value FROM config ) ) or die "Can't fetch configuration";
+	my $configArrayRef = $dbh->selectall_arrayref( q( SELECT param, value FROM config ) ) or die "Can't fetch configuration\n";
 	
 	my %tempConfig = ();
 	foreach my $cfgParam (@$configArrayRef){
@@ -104,11 +105,12 @@ sub addWatcher {
 											if ( $qh->errstr || scalar keys %{ $filters } < 1 ){ return; }
 											http_get( "http://$url" , sub {
 													my ($body, $hdr) = @_;
-											  
+											
 													if ($hdr->{Status} =~ /^2/) {
-													   scrapeRss($url, $body, $filters, $follow_links);
+														scrapeRss($url, $body, $filters, $follow_links);
 													} else {
-													   print STDERR "error, $hdr->{Status} $hdr->{Reason}\n";
+														print STDERR "HTTP error, $hdr->{Status} $hdr->{Reason}\n" .
+																	"\tFailed to retrieve feed: $url\n";
 													}
 												});
 										});
@@ -177,7 +179,7 @@ sub scrapeRss {
 					
 					http_get( $item->link() , sub {
 							my ($body, $hdr) = @_;
-					  
+					
 							if ($hdr->{Status} =~ /^2/) {
 								if ( $filters->{$filter}->{'filter2'} ){
 									my $match = 0;
@@ -199,7 +201,8 @@ sub scrapeRss {
 									push(@{$filters->{$filter}->{'matches'}}, $body);
 								}
 							} else {
-							   print STDERR "error, $hdr->{Status} $hdr->{Reason}\n";
+							   print STDERR "HTTP error, $hdr->{Status} $hdr->{Reason}\n" .
+											"\tFailed to follow link: " . $item->link() . " for feed: $url\n";
 							}
 							$filters->{$filter}->{'outstanding'} -= 1;
 							$return_outstanding->();
@@ -339,6 +342,8 @@ sub findLinks {
 	}
 }
 
+#  Old link adding code using the remote control jDownloader interface.
+#
 #sub sendToJd {
 #	my ( $links, $filter ) = @_;
 #	
@@ -441,7 +446,7 @@ sub sendToJd {
 			$count++;
 		}
 		#if ( ! keys %$res ){ return; }
-		 
+		
 		my $nexthighestName = $res->{packages}->[(scalar @{$res->{packages}}) - 1]->{name};
 		
 		while ($nexthighestName eq 'Unchecked'){
@@ -496,16 +501,16 @@ my $httpd = AnyEvent::HTTPD->new (host => '127.0.0.1', port => $config{'port'});
 	print STDERR "Server running on port: $config{'port'}\n";
 
 $httpd->reg_cb (
-   '/' => sub {
-	  my ($httpd, $req) = @_;
+	'/' => sub {
+		my ($httpd, $req) = @_;
 
-	  my $status;
+		my $status;
 
-	  if ( get("http://$config{'jd_address'}:$config{'jd_port'}/") ){
-		$status = 1
-	  } else {
-		$status = 0;
-	  }
+		if ( get("http://$config{'jd_address'}:$config{'jd_port'}/") ){
+			$status = 1
+		} else {
+			$status = 0;
+		}
 
 		my $statusHtml = $templates{'status'}->fill_in(HASH => {'port' => $config{'port'},
 																'jd_address' => $config{'jd_address'},
@@ -515,11 +520,11 @@ $httpd->reg_cb (
 																'status' => $status
 																});
 
-	  $req->respond ({ content => ['text/html', $templates{'base'}->fill_in(HASH => {'title' => 'Status', 'content' => $statusHtml}) ]});
-   },
-   '/config' => sub {
-	  my ($httpd, $req) = @_;
-	  if( $req->method() eq 'GET' ){
+		$req->respond ({ content => ['text/html', $templates{'base'}->fill_in(HASH => {'title' => 'Status', 'content' => $statusHtml}) ]});
+	},
+	'/config' => sub {
+		my ($httpd, $req) = @_;
+		if( $req->method() eq 'GET' ){
 		
 		
 		my $configHtml = $templates{'config'}->fill_in(HASH => {'port' => $config{'port'},
@@ -528,254 +533,253 @@ $httpd->reg_cb (
 																'check_update' => $config{'check_update'} eq 'TRUE' ? 'checked="checked"' : ''
 																});
 		$req->respond ({ content => ['text/html', $templates{'base'}->fill_in(HASH => {'title' => 'Configuration', 'content' => $configHtml}) ]});
-	  } elsif ( $req->method() eq 'POST' ){
-		if( $req->parm('action') eq 'update' ){
-			my $configParams = decode_json($req->parm('data'));
-			my $qh = $dbh->prepare('UPDATE config SET value=? WHERE param=?');
-			foreach my $param (%$configParams){
-				$qh->execute($configParams->{$param}, $param);
-				if ( $qh->errstr ){ last; }
+		} elsif ( $req->method() eq 'POST' ){
+			if( $req->parm('action') eq 'update' ){
+				my $configParams = decode_json($req->parm('data'));
+				my $qh = $dbh->prepare('UPDATE config SET value=? WHERE param=?');
+				foreach my $param (%$configParams){
+					$qh->execute($configParams->{$param}, $param);
+					if ( $qh->errstr ){ last; }
+				}
+				
+				my $status;
+				if ( ! $qh->errstr ){
+					%config = fetchConfig();
+					$status = 'success';
+				} else {
+					$status = 'Could not update config.  Try reloading jdlbot.';
+				}
+				
+				$req->respond ({ content => ['application/json',  '{ "status" : "' . $status  . '" }' ]});
 			}
-			
-			my $status;
-			if ( ! $qh->errstr ){
-				%config = fetchConfig();
-				$status = 'success';
-			} else {
-				$status = 'Could not update config.  Try reloading jdlbot.';
-			}
-			
-			$req->respond ({ content => ['application/json',  '{ "status" : "' . $status  . '" }' ]});
 		}
-	  }
-   },
-   '/feeds' => sub {
-	  my ($httpd, $req) = @_;
-	  if( $req->method() eq 'GET' ){
-		my $feeds = $dbh->selectall_hashref(q( SELECT * FROM feeds ), 'url');
+	},
+	'/feeds' => sub {
+		my ($httpd, $req) = @_;
+		if( $req->method() eq 'GET' ){
 		
 		$req->respond ({ content => ['text/html', $templates{'base'}->fill_in(HASH => {'title' => 'Feeds', 'content' => $static->{'feeds'}}) ]});
-	  } elsif ( $req->method() eq 'POST' ){
-		my $return = {'status' => 'failure'};
-		if( $req->parm('action') =~ /add|update|enable/){
-			my $reqData = $req->parm('data');
-			$reqData =~ s/:equal-sign:/=/g;
-			my $feedParams = decode_json($reqData);
-			$feedParams->{'url'} =~ s/^http:\/\///;
-			my $feedData = get('http://' . $feedParams->{'url'});
-			
-			if( $feedData ){
-				my $rssFeed;
-				my $parseError = 0;
-				try {
-					$rssFeed = XML::FeedPP->new($feedData);
-				} catch Error with{
-					$parseError = 1;
-				};
+		} elsif ( $req->method() eq 'POST' ){
+			my $return = {'status' => 'failure'};
+			if( $req->parm('action') =~ /add|update|enable/){
+				my $reqData = $req->parm('data');
+				$reqData =~ s/:equal-sign:/=/g;
+				my $feedParams = decode_json($reqData);
+				$feedParams->{'url'} =~ s/^http:\/\///;
+				my $feedData = get('http://' . $feedParams->{'url'});
 				
-				if( $rssFeed->title() && $parseError != 1){
-					my $qh;
-					if ( $req->parm('action') eq 'add' ){
-						$qh = $dbh->prepare(q(INSERT INTO feeds VALUES ( ? , ? , ? , NULL, 'TRUE' )));
-						$qh->execute($feedParams->{'url'}, $feedParams->{'interval'}, $feedParams->{'follow_links'});
-						
-						if ( !$qh->errstr ){
-							my $qh = $dbh->prepare('SELECT * FROM feeds WHERE url=?');
-							$qh->execute($feedParams->{'url'});
-							$feedParams = $qh->fetchrow_hashref();
-						}
-						
-					} elsif ( $req->parm('action') =~ /update|enable/ ){
-						my $old_url = $feedParams->{'old_url'};
-						delete($feedParams->{'old_url'});
-						my @fields = sort keys %$feedParams;
-						my @values = @{$feedParams}{@fields};
-						$qh = $dbh->prepare(sprintf('UPDATE feeds SET %s=? WHERE url=?', join("=?, ", @fields)));
-						push(@values, $old_url);
-						$feedParams->{'old_url'} = $old_url;
-						$qh->execute(@values);
-						
-						if ( !$qh->errstr ){
-							removeWatcher($feedParams->{'old_url'});
+				if( $feedData ){
+					my $rssFeed;
+					my $parseError = 0;
+					try {
+						$rssFeed = XML::FeedPP->new($feedData);
+					} catch Error with{
+						$parseError = 1;
+					};
+					
+					if( $rssFeed->title() && $parseError != 1){
+						my $qh;
+						if ( $req->parm('action') eq 'add' ){
+							$qh = $dbh->prepare(q(INSERT INTO feeds VALUES ( ? , ? , ? , NULL, 'TRUE' )));
+							$qh->execute($feedParams->{'url'}, $feedParams->{'interval'}, $feedParams->{'follow_links'});
 							
-							$qh = $dbh->prepare('SELECT title, feeds FROM filters WHERE feeds LIKE ? ');
-							$qh->execute('%"' . $feedParams->{'old_url'} . '"%');
-							my $filters = $qh->fetchall_hashref('title');
-								
 							if ( !$qh->errstr ){
-								$qh = $dbh->prepare('UPDATE filters SET feeds=? WHERE title=?');
-								foreach my $filter ( keys %{$filters} ){
-									my $feeds = decode_json($filters->{$filter}->{'feeds'});
-									my $new_feeds = [];
-									foreach my $feed ( @{$feeds} ){
-										if ( $feed ne $feedParams->{'old_url'} ){
-											push(@$new_feeds, $feed);
-										} else {
-											push(@$new_feeds, $feedParams->{'url'});
+								my $qh = $dbh->prepare('SELECT * FROM feeds WHERE url=?');
+								$qh->execute($feedParams->{'url'});
+								$feedParams = $qh->fetchrow_hashref();
+							}
+							
+						} elsif ( $req->parm('action') =~ /update|enable/ ){
+							my $old_url = $feedParams->{'old_url'};
+							delete($feedParams->{'old_url'});
+							my @fields = sort keys %$feedParams;
+							my @values = @{$feedParams}{@fields};
+							$qh = $dbh->prepare(sprintf('UPDATE feeds SET %s=? WHERE url=?', join("=?, ", @fields)));
+							push(@values, $old_url);
+							$feedParams->{'old_url'} = $old_url;
+							$qh->execute(@values);
+							
+							if ( !$qh->errstr ){
+								removeWatcher($feedParams->{'old_url'});
+								
+								$qh = $dbh->prepare('SELECT title, feeds FROM filters WHERE feeds LIKE ? ');
+								$qh->execute('%"' . $feedParams->{'old_url'} . '"%');
+								my $filters = $qh->fetchall_hashref('title');
+									
+								if ( !$qh->errstr ){
+									$qh = $dbh->prepare('UPDATE filters SET feeds=? WHERE title=?');
+									foreach my $filter ( keys %{$filters} ){
+										my $feeds = decode_json($filters->{$filter}->{'feeds'});
+										my $new_feeds = [];
+										foreach my $feed ( @{$feeds} ){
+											if ( $feed ne $feedParams->{'old_url'} ){
+												push(@$new_feeds, $feed);
+											} else {
+												push(@$new_feeds, $feedParams->{'url'});
+											}
 										}
+										$qh->execute(encode_json($new_feeds), $filter);
 									}
-									$qh->execute(encode_json($new_feeds), $filter);
 								}
 							}
+							
+							if ( $req->parm('action') eq 'enable' ){
+								my $qh = $dbh->prepare('SELECT * FROM feeds WHERE url=?');
+								$qh->execute($feedParams->{'old_url'});
+								$feedParams = $qh->fetchrow_hashref();
+							}
+	
+						}
+							
+						if(!$qh->errstr){
+							unless ( $feedParams->{'enabled'} eq 'FALSE' ){
+								addWatcher($feedParams->{'url'}, $feedParams->{'interval'}, $feedParams->{'follow_links'});
+							}
+							$feedParams->{'status'} = 'success';
+							$return = $feedParams;						
+						} else {
+							$return->{'status'} = "Could not save feed data, possibly a duplicate feed?";
 						}
 						
-						if ( $req->parm('action') eq 'enable' ){
-							my $qh = $dbh->prepare('SELECT * FROM feeds WHERE url=?');
-							$qh->execute($feedParams->{'old_url'});
-							$feedParams = $qh->fetchrow_hashref();
-						}
-
-					}
-						
-					if(!$qh->errstr){
-						unless ( $feedParams->{'enabled'} eq 'FALSE' ){
-							addWatcher($feedParams->{'url'}, $feedParams->{'interval'}, $feedParams->{'follow_links'});
-						}
-						$feedParams->{'status'} = 'success';
-						$return = $feedParams;						
 					} else {
-						$return->{'status'} = "Could not save feed data, possibly a duplicate feed?";
+						$return->{'status'} = "Did not parse properly as an RSS feed, check the url";
 					}
-					
 				} else {
-					$return->{'status'} = "Did not parse properly as an RSS feed, check the url";
+					$return->{'status'} = "Could not fetch RSS feed, check the url";
 				}
-			} else {
-				$return->{'status'} = "Could not fetch RSS feed, check the url";
-			}
-		} elsif ( $req->parm('action') eq 'delete' ) {
-			my $reqData = $req->parm('data');
-			$reqData =~ s/:equal-sign:/=/g;
-			my $feedParams = decode_json($reqData);
-			$feedParams->{'url'} =~ s/^http:\/\///;
-			
-			$return->{'status'} = "Could not delete feed.  Incorrect url?";
-			my $qh = $dbh->prepare('DELETE FROM feeds WHERE url=?');
-			$qh->execute($feedParams->{'url'});
-			$qh = $dbh->prepare('SELECT title, feeds FROM filters WHERE feeds LIKE ? ');
-			$qh->execute('%' . $feedParams->{'url'} . '%');
-			my $filters = $qh->fetchall_hashref('title');
+			} elsif ( $req->parm('action') eq 'delete' ) {
+				my $reqData = $req->parm('data');
+				$reqData =~ s/:equal-sign:/=/g;
+				my $feedParams = decode_json($reqData);
+				$feedParams->{'url'} =~ s/^http:\/\///;
 				
-			if ( !$qh->errstr ){
-				$qh = $dbh->prepare('UPDATE filters SET feeds=? WHERE title=?');
-				foreach my $filter ( keys %{$filters} ){
-					my $feeds = decode_json($filters->{$filter}->{'feeds'});
-					my $new_feeds = [];
-					foreach my $feed ( @{$feeds} ){
-						if ( $feed ne $feedParams->{'url'} ){
-							push(@$new_feeds, $feed);
+				$return->{'status'} = "Could not delete feed.  Incorrect url?";
+				my $qh = $dbh->prepare('DELETE FROM feeds WHERE url=?');
+				$qh->execute($feedParams->{'url'});
+				$qh = $dbh->prepare('SELECT title, feeds FROM filters WHERE feeds LIKE ? ');
+				$qh->execute('%' . $feedParams->{'url'} . '%');
+				my $filters = $qh->fetchall_hashref('title');
+					
+				if ( !$qh->errstr ){
+					$qh = $dbh->prepare('UPDATE filters SET feeds=? WHERE title=?');
+					foreach my $filter ( keys %{$filters} ){
+						my $feeds = decode_json($filters->{$filter}->{'feeds'});
+						my $new_feeds = [];
+						foreach my $feed ( @{$feeds} ){
+							if ( $feed ne $feedParams->{'url'} ){
+								push(@$new_feeds, $feed);
+							}
 						}
+						$qh->execute(encode_json($new_feeds), $filter);
 					}
-					$qh->execute(encode_json($new_feeds), $filter);
+				}
+					
+				if(!$qh->errstr){
+					removeWatcher($feedParams->{'url'});
+					$feedParams->{'status'} = 'success';
+					$return = $feedParams;						
+				}
+			} elsif ( $req->parm('action') eq 'list' ) {
+				$return->{'status'} = "Could not get list of feeds, possible database error.";
+				my $feeds = $dbh->selectall_hashref(q( SELECT * FROM feeds ORDER BY url ), 'url');
+				# Hashref fucks up the sorting
+				my $count = 0;
+				foreach my $key ( sort keys %{$feeds} ){
+					$return->{'feeds'}[$count] = $feeds->{$key};
+					$count++;
+				}
+				
+				if ( !$dbh->errstr ){
+					$return->{'status'} = "success";
 				}
 			}
-				
-			if(!$qh->errstr){
-				removeWatcher($feedParams->{'url'});
-				$feedParams->{'status'} = 'success';
-				$return = $feedParams;						
-			}
-		} elsif ( $req->parm('action') eq 'list' ) {
-			$return->{'status'} = "Could not get list of feeds, possible database error.";
-			my $feeds = $dbh->selectall_hashref(q( SELECT * FROM feeds ORDER BY url ), 'url');
-			# Hashref fucks up the sorting
-			my $count = 0;
-			foreach my $key ( sort keys %{$feeds} ){
-				$return->{'feeds'}[$count] = $feeds->{$key};
-				$count++;
-			}
-			
-			if ( !$dbh->errstr ){
-				$return->{'status'} = "success";
-			}
+			$return = encode_json($return);
+			$req->respond ({ content => ['application/json',  $return ]});
 		}
-		$return = encode_json($return);
-		$req->respond ({ content => ['application/json',  $return ]});
-	  }
-   },
-   '/filters' => sub{
-	  my ($httpd, $req) = @_;
-	  if( $req->method() eq 'GET' ){
+	},
+	'/filters' => sub{
+		my ($httpd, $req) = @_;
+		if( $req->method() eq 'GET' ){
 		
 		$req->respond ({ content => ['text/html', $templates{'base'}->fill_in(HASH => {'title' => 'Filters', 'content' => $static->{'filters'}}) ]});
 		
-	  } elsif ( $req->method() eq 'POST' ){
-		my $return = {'status' => 'failure'};
-		if( $req->parm('action') =~ /^(add|update|delete|list)$/ ){
-			my $reqData = $req->parm('data');
-			$reqData =~ s/:plus-sign:/+/g;
-			$reqData =~ s/:equal-sign:/=/g;
-			my $filterParams = decode_json($reqData);
-			
-			my $qh;
-			if ( $req->parm('action') eq 'add' ){
-				$return->{'status'} = "Could not save filter data, either a duplicate title or missing options";
-				my @fields = sort keys %$filterParams;
-				my @values = @{$filterParams}{@fields};
-				$qh = $dbh->prepare(sprintf('INSERT INTO filters (%s) VALUES (%s)', join(",", @fields), join(",", ("?")x@fields)));
-				$qh->execute(@values);
-				if ( ! $qh->errstr ){
-					$qh = $dbh->prepare('SELECT * FROM filters WHERE title=?');
+		} elsif ( $req->method() eq 'POST' ){
+			my $return = {'status' => 'failure'};
+			if( $req->parm('action') =~ /^(add|update|delete|list)$/ ){
+				my $reqData = $req->parm('data');
+				$reqData =~ s/:plus-sign:/+/g;
+				$reqData =~ s/:equal-sign:/=/g;
+				my $filterParams = decode_json($reqData);
+				
+				my $qh;
+				if ( $req->parm('action') eq 'add' ){
+					$return->{'status'} = "Could not save filter data, either a duplicate title or missing options";
+					my @fields = sort keys %$filterParams;
+					my @values = @{$filterParams}{@fields};
+					$qh = $dbh->prepare(sprintf('INSERT INTO filters (%s) VALUES (%s)', join(",", @fields), join(",", ("?")x@fields)));
+					$qh->execute(@values);
+					if ( ! $qh->errstr ){
+						$qh = $dbh->prepare('SELECT * FROM filters WHERE title=?');
+						$qh->execute($filterParams->{'title'});
+						$return->{'filter'} = $qh->fetchrow_hashref();
+					}
+					
+				} elsif ( $req->parm('action') eq 'update' ){
+					$return->{'status'} = "Could not save filter data, either a duplicate title or missing options";
+					my $old_title = $filterParams->{'old_title'};
+					delete($filterParams->{'old_title'});
+					my @fields = sort keys %$filterParams;
+					my @values = @{$filterParams}{@fields};
+					$qh = $dbh->prepare(sprintf('UPDATE filters SET %s=? WHERE title=?', join("=?, ", @fields)));
+					push(@values, $old_title);
+					$filterParams->{'old_title'} = $old_title;
+					$qh->execute(@values);
+					$return->{'filter'} = $filterParams;						
+					
+				} elsif ( $req->parm('action') eq 'delete' ){
+					$return->{'status'} = "Could not delete filter.  Incorrect title?";
+					$qh = $dbh->prepare('DELETE FROM filters WHERE title=?');
 					$qh->execute($filterParams->{'title'});
-					$return->{'filter'} = $qh->fetchrow_hashref();
+					$return->{'filter'} = $filterParams;						
+					
+				} elsif ( $req->parm('action') eq 'list' ){
+					$return->{'status'} = "Could not fetch list of filters.";
+	
+					my $myFilters = $dbh->selectall_hashref(q( SELECT * FROM filters ORDER BY title ), 'title');
+					
+					# God... why doesn't it return the hash in the proper order??!?!
+					my $count = 0;
+					foreach my $key ( sort keys %{$myFilters} ){
+						$return->{'filters'}[$count] = $myFilters->{$key};
+						$count++;
+					}
+				}
+					
+				if(!$dbh->errstr){
+					$return->{'status'} = 'success';
 				}
 				
-			} elsif ( $req->parm('action') eq 'update' ){
-				$return->{'status'} = "Could not save filter data, either a duplicate title or missing options";
-				my $old_title = $filterParams->{'old_title'};
-				delete($filterParams->{'old_title'});
-				my @fields = sort keys %$filterParams;
-				my @values = @{$filterParams}{@fields};
-				$qh = $dbh->prepare(sprintf('UPDATE filters SET %s=? WHERE title=?', join("=?, ", @fields)));
-				push(@values, $old_title);
-				$filterParams->{'old_title'} = $old_title;
-				$qh->execute(@values);
-				$return->{'filter'} = $filterParams;						
-				
-			} elsif ( $req->parm('action') eq 'delete' ){
-				$return->{'status'} = "Could not delete filter.  Incorrect title?";
-				$qh = $dbh->prepare('DELETE FROM filters WHERE title=?');
-				$qh->execute($filterParams->{'title'});
-				$return->{'filter'} = $filterParams;						
-				
-			} elsif ( $req->parm('action') eq 'list' ){
-				$return->{'status'} = "Could not fetch list of filters.";
-
-				my $myFilters = $dbh->selectall_hashref(q( SELECT * FROM filters ORDER BY title ), 'title');
-				
-				# God... why doesn't it return the hash in the proper order??!?!
-				my $count = 0;
-				foreach my $key ( sort keys %{$myFilters} ){
-					$return->{'filters'}[$count] = $myFilters->{$key};
-					$count++;
-				}
+	
 			}
-				
-			if(!$dbh->errstr){
-				$return->{'status'} = 'success';
-			}
-			
-
+			$return = encode_json($return);
+			$req->respond ({ content => ['application/json',  $return ]});
 		}
-		$return = encode_json($return);
-		$req->respond ({ content => ['application/json',  $return ]});
-	  }
-   },
-   '/main.css' => sub {
-	  my ($httpd, $req) = @_;
+	},
+	'/main.css' => sub {
+		my ($httpd, $req) = @_;
 		
 		$req->respond({ content => ['text/css', $static->{'css'}] });
-   },
-   '/bt.js' => sub {
-	  my ($httpd, $req) = @_;
+	},
+	'/bt.js' => sub {
+		my ($httpd, $req) = @_;
 		
 		$req->respond({ content => ['text/css', $static->{'bt.js'}] });
-   },
-   '/logo.png' => sub {
-	  my ($httpd, $req) = @_;
+	},
+	'/logo.png' => sub {
+		my ($httpd, $req) = @_;
 		
 		$req->respond({ content => ['', $static->{'logo'}] });
-   },
+	},
 );
 
 $httpd->run; # making a AnyEvent condition variable would also work
