@@ -7,7 +7,7 @@ var updateConfig = function()\{
 					  'jd_port' : $('#jd_port').val()
 					  \};
 	$.post('/config',
-		   'action=update&data=' + JSON.stringify(configVars),
+		   'action=update&data=' + escape(JSON.stringify(configVars)),
 		   function(data)\{
 				if( data.status === 'success' )\{
 					notify($('span.notify'), data.status, 'green');

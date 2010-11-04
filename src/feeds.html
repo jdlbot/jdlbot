@@ -4,7 +4,7 @@ var addFeed = function(){
 	var feedVars = getFeedValues($id);
 	
 	$.post('/feeds',
-		   'action=add&data=' + JSON.stringify(feedVars),
+		   'action=add&data=' + escape(JSON.stringify(feedVars)),
 		   function(data){
 			if(data.status === 'success'){
 				insertFeed(data);
@@ -20,7 +20,7 @@ var updateFeed = function($id){
 	var feedVars = getFeedValues($id);
 	
 	$.post('/feeds',
-		   'action=update&data=' + JSON.stringify(feedVars),
+		   'action=update&data=' + escape(JSON.stringify(feedVars)),
 		   function(data){
 			if(data.status === 'success'){
 				$id.find('span.display span').html('<a href="http://' + data.url + '">' + data.url + ' -- Interval: ' + data.interval + '</a>');
@@ -36,12 +36,12 @@ var updateFeed = function($id){
 
 var enableFeed = function($id){
 	var feedVars = {
-					  'url' : $id.find('input[name=old_url]').val().replace(/=/g, ':equal-sign:'),
-					  'old_url' : $id.find('input[name=old_url]').val().replace(/=/g, ':equal-sign:'),
+					  'url' : $id.find('input[name=old_url]').val(),
+					  'old_url' : $id.find('input[name=old_url]').val(),
 					  'enabled' : testCheckBox($id.find('input[name=enabled]'))
 					  };
 	$.post('/feeds',
-		   'action=enable&data=' + JSON.stringify(feedVars),
+		   'action=enable&data=' + escape(JSON.stringify(feedVars)),
 		   function(data){
 			if(data.status === 'success'){
 				// Do nothing
@@ -54,10 +54,10 @@ var enableFeed = function($id){
 
 var deleteFeed = function($id){
 	var feedVars = {
-					  'url' : $id.find('input[name=url]').val().replace(/=/g, ':equal-sign:')
+					  'url' : $id.find('input[name=url]').val()
 					  };
 	$.post('/feeds',
-		   'action=delete&data=' + JSON.stringify(feedVars),
+		   'action=delete&data=' + escape(JSON.stringify(feedVars)),
 		   function(data){
 			if(data.status === 'success'){
 				//notify($('#new_feed_form').find('span.notify'), data.status, 'green');
@@ -139,7 +139,7 @@ var getFeedValues = function($id){
 			if ( $(this).is(':checkbox') ){
 				feedVars[this.name] = testCheckBox(this);
 			} else {
-				feedVars[this.name] = $(this).val().replace(/=/g, ':equal-sign:')
+				feedVars[this.name] = $(this).val()
 			}
 		});
 	

@@ -79,7 +79,8 @@ $ua->timeout(5);
 loadSupportFiles();
 
 sub fetchConfig {
-	my $configArrayRef = $dbh->selectall_arrayref( q( SELECT param, value FROM config ) ) or die "Can't fetch configuration\n";
+	my $configArrayRef = $dbh->selectall_arrayref( q( SELECT param, value FROM config ) )
+		or die "Can't fetch configuration\n";
 	
 	my %tempConfig = ();
 	foreach my $cfgParam (@$configArrayRef){
@@ -93,7 +94,8 @@ $watchers = {};
 sub addWatcher {
 	my ($url, $interval, $follow_links) = @_;
 	
-	$watchers->{$url} = AnyEvent->timer(after		=>	5,
+	$watchers->{$url} = AnyEvent->timer(
+										after		=>	5,
 										interval	=>	$interval * 60,
 										cb			=>	sub {
 											print STDERR "Running watcher: " . $url . "\n";
@@ -535,7 +537,7 @@ $httpd->reg_cb (
 		$req->respond ({ content => ['text/html', $templates{'base'}->fill_in(HASH => {'title' => 'Configuration', 'content' => $configHtml}) ]});
 		} elsif ( $req->method() eq 'POST' ){
 			if( $req->parm('action') eq 'update' ){
-				my $configParams = decode_json($req->parm('data'));
+				my $configParams = decode_json(uri_unescape($req->parm('data')));
 				my $qh = $dbh->prepare('UPDATE config SET value=? WHERE param=?');
 				foreach my $param (%$configParams){
 					$qh->execute($configParams->{$param}, $param);
@@ -562,9 +564,7 @@ $httpd->reg_cb (
 		} elsif ( $req->method() eq 'POST' ){
 			my $return = {'status' => 'failure'};
 			if( $req->parm('action') =~ /add|update|enable/){
-				my $reqData = $req->parm('data');
-				$reqData =~ s/:equal-sign:/=/g;
-				my $feedParams = decode_json($reqData);
+				my $feedParams = decode_json(uri_unescape($req->parm('data')));
 				$feedParams->{'url'} =~ s/^http:\/\///;
 				my $feedData = get('http://' . $feedParams->{'url'});
 				
@@ -648,9 +648,7 @@ $httpd->reg_cb (
 					$return->{'status'} = "Could not fetch RSS feed, check the url";
 				}
 			} elsif ( $req->parm('action') eq 'delete' ) {
-				my $reqData = $req->parm('data');
-				$reqData =~ s/:equal-sign:/=/g;
-				my $feedParams = decode_json($reqData);
+				my $feedParams = decode_json(uri_unescape($req->parm('data')));
 				$feedParams->{'url'} =~ s/^http:\/\///;
 				
 				$return->{'status'} = "Could not delete feed.  Incorrect url?";
@@ -706,10 +704,7 @@ $httpd->reg_cb (
 		} elsif ( $req->method() eq 'POST' ){
 			my $return = {'status' => 'failure'};
 			if( $req->parm('action') =~ /^(add|update|delete|list)$/ ){
-				my $reqData = $req->parm('data');
-				$reqData =~ s/:plus-sign:/+/g;
-				$reqData =~ s/:equal-sign:/=/g;
-				my $filterParams = decode_json($reqData);
+				my $filterParams = decode_json($req->parm('data'));
 				
 				my $qh;
 				if ( $req->parm('action') eq 'add' ){
