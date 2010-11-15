@@ -414,6 +414,7 @@ sub sendToJd {
 		};
 		process "tr.downloadoffline, tr.downloadonline", "files[]" => scraper {
 			process 'input[name="package_single_add"]', fnum => '@value';
+			process 'td[style="padding-left: 30px;"]', name => 'TEXT';
 		};
 	};
 	
@@ -478,8 +479,49 @@ sub sendToJd {
 					if( index($link->{onum}, $_) == 0 ){
 						$isOffline = 1;
 						$ua->post("http://$jdInfo/link_adder.tmpl", Content => $contentString . 'remove');
+						
+						print STDERR "Links offline for : " . $filter->{'title'} . " removing.\n";
+						
 						last LINKS;
 					}
+				}
+			}
+		}
+
+		# This looks convoluted, but it checks to see if there are missing part* files or r* files for the links added
+		if ( ! $isOffline ){
+			my @high_range = ($highest + 1)..$nexthighest;
+			my $test_name = sub {
+				if ( $_ =~ /\.(part|r)(\d+)/i ){
+					return $2;
+				} else {
+					return undef;
+				}
+			};
+
+			
+			my $test_package = sub {
+				my $package = $_;
+				if ( ${grep($package->{num} == $_, @high_range)} > 0 ) {
+					return 1;
+				} else {
+					return 0;
+				}
+			};
+			
+			my @packages = grep($test_package->($_), @{$res->{packages}});
+			
+			PACKAGES: foreach my $package (@packages){
+				my @matches = grep(index($_->{name}, $package->{name}) == 0, @{$res->{files});
+				my @results = sort {$a <=> $b} grep($_ ne undef, map($test_name->($_->{name}), @matches))
+				if ( ! @results ){ last PACKAGES; }
+				my @result_range = 1..($results[${@results} - 1 >= 0 ? ${@results} - 1 : 0]);
+				if ( ${@results} != ${@result_range} ){
+					$isOffline = 1;
+					$ua->post("http://$jdInfo/link_adder.tmpl", Content => $contentString . 'remove');
+						
+					print STDERR "Links missing parts for : " . $filter->{'title'} . " removing.\n";
+					last PACKAGES;
 				}
 			}
 		}
@@ -768,7 +810,7 @@ $httpd->reg_cb (
 	'/bt.js' => sub {
 		my ($httpd, $req) = @_;
 		
-		$req->respond({ content => ['text/css', $static->{'bt.js'}] });
+		$req->respond({ content => ['text/javascript', $static->{'bt.js'}] });
 	},
 	'/logo.png' => sub {
 		my ($httpd, $req) = @_;
