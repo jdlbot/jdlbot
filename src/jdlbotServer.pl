@@ -492,17 +492,16 @@ sub sendToJd {
 		if ( ! $isOffline ){
 			my @high_range = ($highest + 1)..$nexthighest;
 			my $test_name = sub {
-				if ( $_ =~ /\.(part|r)(\d+)/i ){
-					return $2;
+				if ( $_->{name} =~ /\.part(\d+)/i ){
+					return $1;
 				} else {
 					return undef;
 				}
 			};
-
 			
 			my $test_package = sub {
-				my $package = $_;
-				if ( ${grep($package->{num} == $_, @high_range)} > 0 ) {
+				my $package = shift;
+				if ( scalar(grep($package->{num} == $_, @high_range)) > 0 ) {
 					return 1;
 				} else {
 					return 0;
@@ -512,11 +511,13 @@ sub sendToJd {
 			my @packages = grep($test_package->($_), @{$res->{packages}});
 			
 			PACKAGES: foreach my $package (@packages){
-				my @matches = grep(index($_->{name}, $package->{name}) == 0, @{$res->{files});
-				my @results = sort {$a <=> $b} grep($_ ne undef, map($test_name->($_->{name}), @matches))
+				my @matches = grep(index($_->{name}, $package->{name}) == 0, @{$res->{files}});
+				my @results = sort {$a <=> $b} grep($_ ne undef, map($test_name->($_), @matches));
+				
 				if ( ! @results ){ last PACKAGES; }
-				my @result_range = 1..($results[${@results} - 1 >= 0 ? ${@results} - 1 : 0]);
-				if ( ${@results} != ${@result_range} ){
+				my @result_range = 1..($results[scalar(@results) - 1 >= 0 ? scalar(@results) - 1 : 0]);
+				
+				if ( scalar(@results) != scalar(@result_range) ){
 					$isOffline = 1;
 					$ua->post("http://$jdInfo/link_adder.tmpl", Content => $contentString . 'remove');
 						
@@ -525,6 +526,7 @@ sub sendToJd {
 				}
 			}
 		}
+		
 		if ( ! $isOffline && $jdStart ) {
 			$ua->post("http://$jdInfo/link_adder.tmpl", Content => $contentString . 'add');
 			$ua->post("http://$jdInfo/index.tmpl", Content => 'do=start');
