@@ -37,4 +37,8 @@ sub checkConfigFile {
 	}
 }
 
+sub openBrowser {
+		#Do nothing
+}
+
 return 1;

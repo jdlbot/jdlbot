@@ -31,4 +31,8 @@ sub checkConfigFile {
 	return $configfile;
 }
 
+sub openBrowser {
+	`start http://127.0.0.1:$config{'port'}/`;
+}
+
 return 1;
