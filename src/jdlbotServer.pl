@@ -514,7 +514,7 @@ sub sendToJd {
 				my @matches = grep(index($_->{name}, $package->{name}) == 0, @{$res->{files}});
 				my @results = sort {$a <=> $b} grep($_ ne undef, map($test_name->($_), @matches));
 				
-				if ( ! @results ){ last PACKAGES; }
+				if ( ! @results ){ next PACKAGES; }
 				my @result_range = 1..($results[scalar(@results) - 1 >= 0 ? scalar(@results) - 1 : 0]);
 				
 				if ( scalar(@results) != scalar(@result_range) ){
