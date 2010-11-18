@@ -579,7 +579,8 @@ $httpd->reg_cb (
 		my $configHtml = $templates{'config'}->fill_in(HASH => {'port' => $config{'port'},
 																'jd_address' => $config{'jd_address'},
 																'jd_port' => $config{'jd_port'},
-																'check_update' => $config{'check_update'} eq 'TRUE' ? 'checked="checked"' : ''
+																'check_update' => $config{'check_update'} eq 'TRUE' ? 'checked="checked"' : '',
+																'open_browser' => $config{'open_browser'} eq 'TRUE' ? 'checked="checked"' : ''
 																});
 		$req->respond ({ content => ['text/html', $templates{'base'}->fill_in(HASH => {'title' => 'Configuration', 'content' => $configHtml}) ]});
 		} elsif ( $req->method() eq 'POST' ){
