@@ -547,7 +547,7 @@ my $httpd = AnyEvent::HTTPD->new (host => '127.0.0.1', port => $config{'port'});
 	print STDERR "Server running on port: $config{'port'}\n" .
 	"Open http://127.0.0.1:$config{'port'}/ in your favorite web browser to continue.\n\n";
 	
-	openBrowser();
+	if( $config{'open_browser'} eq 'TRUE' ){openBrowser();}
 
 $httpd->reg_cb (
 	'/' => sub {
