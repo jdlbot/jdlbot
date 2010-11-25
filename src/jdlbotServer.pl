@@ -326,17 +326,19 @@ sub findLinks {
 						next CONTENT;
 					}
 				}
-				my $qh = $dbh->prepare('UPDATE filters SET tv_last=? WHERE title=?');
-				$qh->execute($filter->{'new_tv_last'}->[0], $filter->{'title'});
-				push(@{$filter->{'new_tv_last_has'}}, $filter->{'new_tv_last'}->[$count]);
-				
 				# Status message?
 				print STDERR "Sending links for filter: " . $filter->{'title'} . "\n";
-				sendToJd($linksToProcess, $filter);
+				if (sendToJd($linksToProcess, $filter)){
+					my $qh = $dbh->prepare('UPDATE filters SET tv_last=? WHERE title=?');
+					$qh->execute($filter->{'new_tv_last'}->[0], $filter->{'title'});
+					push(@{$filter->{'new_tv_last_has'}}, $filter->{'new_tv_last'}->[$count]);
+				}
+				#sendToJd($linksToProcess, $filter);
 			} else {
 				print STDERR "Sending links for filter: " . $filter->{'title'} . "\n";
-				sendToJd($linksToProcess, $filter);
-				return;
+				if(sendToJd($linksToProcess, $filter)){
+					return;
+				}
 			}
 		}
 		
@@ -472,24 +474,22 @@ sub sendToJd {
 		my $contentString = 'do=Submit&package_all_add=' . join('&package_all_add=',(($highest + 1)..$nexthighest) ) .
 							'&' . $singleFiles . 'selected_dowhat_link_adder=';
 		
-		my $isOffline = 0;
 		if ( $res->{offline} ){
-			LINKS: foreach my $link (@{$res->{offline}}){
+			foreach my $link (@{$res->{offline}}){
 				foreach(($highest + 1)..$nexthighest ){
 					if( index($link->{onum}, $_) == 0 ){
-						$isOffline = 1;
 						$ua->post("http://$jdInfo/link_adder.tmpl", Content => $contentString . 'remove');
 						
 						print STDERR "Links offline for : " . $filter->{'title'} . " removing.\n";
 						
-						last LINKS;
+						return 0;
 					}
 				}
 			}
 		}
 
 		# This looks convoluted, but it checks to see if there are missing part* files or r* files for the links added
-		if ( ! $isOffline ){
+		{
 			my @high_range = ($highest + 1)..$nexthighest;
 			my $test_name = sub {
 				if ( $_->{name} =~ /\.part(\d+)/i ){
@@ -517,28 +517,31 @@ sub sendToJd {
 				if ( ! @results ){ next PACKAGES; }
 				my @result_range = 1..($results[scalar(@results) - 1 >= 0 ? scalar(@results) - 1 : 0]);
 				
-				if ( scalar(@results) != scalar(@result_range) ){
-					$isOffline = 1;
+				if ( scalar(@results) != scalar(@result_range) || scalar(@results) == 1 ){
 					$ua->post("http://$jdInfo/link_adder.tmpl", Content => $contentString . 'remove');
 						
 					print STDERR "Links missing parts for : " . $filter->{'title'} . " removing.\n";
-					last PACKAGES;
+					
+					return 0;
 				}
 			}
 		}
 		
-		if ( ! $isOffline && $jdStart ) {
+		if ( $jdStart ) {
 			$ua->post("http://$jdInfo/link_adder.tmpl", Content => $contentString . 'add');
 			$ua->post("http://$jdInfo/index.tmpl", Content => 'do=start');
 		}
-		if ( ! $isOffline && $filter->{'stop_found'} eq 'TRUE' ){
+		if ( $filter->{'stop_found'} eq 'TRUE' ){
 			$filter->{'enabled'} = 'FALSE';
 			my $qh = $dbh->prepare(q( UPDATE filters SET enabled='FALSE' WHERE title=? ));
 			$qh->execute($filter->{'title'});
 		}
 		
+		return 1;
+		
 	} else {
 		print STDERR "Failed to connect to JD : " . $response->status_line . "\n";
+		return 0;
 	}
 }
 
