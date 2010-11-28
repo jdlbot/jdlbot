@@ -187,7 +187,12 @@ var insertFilter = function(data){
 }
 
 var fillInFilter = function($id, data){
-	$id.find('span.display span').text(data.title);
+	
+	if ( data.tv_last !== "" ){
+		$id.find('span.display span').text(data.title + " - Last Episode: " + data.tv_last);
+	} else {
+		$id.find('span.display span').text(data.title);
+	}
 	for (var i in data){
 		if (data[i] === 'TRUE' || data[i] === 'FALSE'){
 			if (data[i] === 'TRUE'){
