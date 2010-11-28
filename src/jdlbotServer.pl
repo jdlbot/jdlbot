@@ -2,6 +2,7 @@ use EV;
 use AnyEvent::Impl::EV;
 use AnyEvent::HTTPD;
 use AnyEvent::HTTP;
+# Set the UserAgent for external async requests.  Don't want to get flagged, do we?
 $AnyEvent::HTTP::USERAGENT = 'Mozilla/5.0 (Windows; U; Windows NT 6.1; en-US; rv:1.9.2.10) Gecko/20100914 Firefox/3.6.10 ( .NET CLR 3.5.30729)';
 
 use PAR;
@@ -21,10 +22,13 @@ use Getopt::Long;
 use Perl::Version;
 use DBI;
 use DBIx::MultiStatementDo;
+
+# PAR doesn't work correctly without this, could be included in the command line
 use Moose::Meta::Object::Trait;
 
 require('build.pl');
 
+# Timeout for synchronous web requests
 $ua->timeout(5);
 
 # Encapsulate configuration code
@@ -37,10 +41,12 @@ $ua->timeout(5);
 	
 	my $version = Perl::Version->new("0.1.1");
 	
-	GetOptions("port=i" => \$port,
-			   "directory=s" => \$directory,
-			   "configdir=s" => \$configdir,
-			   "version" => \$versionFlag);
+	# Command line startup options
+	#  Usage: jdlbotServer(.exe) [-d|--directory=dir] [-p|--port=port#] [-c|--configdir=dir] [-v|--version]
+	GetOptions("port=i" => \$port, # Port for the local web server to run on
+			   "directory=s" => \$directory, # Directory to change to after starting (for dev mostly)
+			   "configdir=s" => \$configdir, # Where your config files are located
+			   "version" => \$versionFlag); # Get the version number
 	
 	if( $versionFlag ){
 		print STDERR "jDlBot! version $version\n";
@@ -71,6 +77,7 @@ $ua->timeout(5);
 		print STDERR "Update successful.\n";
 	}
 
+	# Port setting from the command line is temporary
 	if( $port ){
 		$config{'port'} = $port;
 	}
@@ -90,6 +97,7 @@ sub fetchConfig {
 	return %tempConfig;
 }
 
+# Feed watchers
 $watchers = {};
 sub addWatcher {
 	my ($url, $interval, $follow_links) = @_;
@@ -346,65 +354,18 @@ sub findLinks {
 	}
 }
 
-#  Old link adding code using the remote control jDownloader interface.
-#
-#sub sendToJd {
-#	my ( $links, $filter ) = @_;
-#	
-#	if ( $filter->{'enabled'} eq 'FALSE' ){ return; }
-#	
-#	my $jdInfo = $config{'jd_address'} . ":" . $config{'jd_port'};
-#	my $jdStart = $filter->{'autostart'} eq 'TRUE' ? 1 : 0;
-#	my $jdGrab = $filter->{'show_linkgrab'} eq 'TRUE' ? 1 : 0;
-#	
-#	@$links = map { uri_escape($_, "?&"); } @$links;
-#	
-#	#my $url = "http://$jdInfo/action/add/links/grabber$jdGrab/start$jdStart/" . join(' ', @$links);
-#	#print "$url\n\n";
-#
-#	my $sendLink = sub {
-#		my $sendLink = shift;
-#		
-#		my $link = shift(@$links);
-#		my $url = "http://$jdInfo/action/add/links/grabber$jdGrab/start$jdStart/$link";
-#		print $url . "\n";
-#		http_get( $url , sub {
-#				my ($body, $hdr) = @_;
-#		  
-#				if ($hdr->{Status} =~ /^2/) {
-#					if (scalar @$links > 0){
-#						$sendLink->($sendLink);
-#					} else {
-#					
-#						if ( $filter->{'stop_found'} eq 'TRUE' ){
-#							$filter->{'enabled'} = 'FALSE';
-#							my $qh = $dbh->prepare(q( UPDATE filters SET enabled='FALSE' WHERE title=? ));
-#							$qh->execute($filter->{'title'});
-#							
-#							print $qh->errstr . "\n"
-#						}
-#					}
-#					
-#					print "$body\n";
-#				   #scrapeRss($url, $body, $filters);
-#				} else {
-#				   print "error, $hdr->{Status} $hdr->{Reason}\n";
-#				}
-#			});
-#	};
-#	$sendLink->($sendLink);
-#}
-
+# sendToJd is to remain synchronous for the time being.
+#  Returns 1 for success, 0 for failure.
 sub sendToJd {
 	my ( $links, $filter ) = @_;
 	
-	if ( $filter->{'enabled'} eq 'FALSE' ){ return; }
+	if ( $filter->{'enabled'} eq 'FALSE' ){ return 0; }
 	
 	my $jdInfo = $config{'jd_address'} . ":" . $config{'jd_port'};
 	my $jdStart = $filter->{'autostart'} eq 'TRUE' ? 1 : 0;
 
 	my $c = get("http://$jdInfo/link_adder.tmpl");
-	if (! $c ){ return; }
+	if (! $c ){ return 0; }
 
 	my $s = scraper {
 		process "tr.package", "packages[]" => scraper {
@@ -454,6 +415,8 @@ sub sendToJd {
 		
 		my $nexthighestName = $res->{packages}->[(scalar @{$res->{packages}}) - 1]->{name};
 		
+		# Wait for JDownloader to scrape the sent links
+		#  This can result in changes to the number of packages added as JD does its magic
 		while ($nexthighestName eq 'Unchecked'){
 			$c = get("http://$jdInfo/link_adder.tmpl");
 			$res = $s->scrape($c);
@@ -517,6 +480,9 @@ sub sendToJd {
 				if ( ! @results ){ next PACKAGES; }
 				my @result_range = 1..($results[scalar(@results) - 1 >= 0 ? scalar(@results) - 1 : 0]);
 				
+				# Checks to see if the guessed number of parts are present or if a single "part" is present
+				#  Why a fail on a single "part#" ?  Because things are split into parts when there are MULTIPLE.
+				#  If a ".part1" is returned, then we need to detect and fail on this condition.
 				if ( scalar(@results) != scalar(@result_range) || scalar(@results) == 1 ){
 					$ua->post("http://$jdInfo/link_adder.tmpl", Content => $contentString . 'remove');
 						
@@ -810,6 +776,7 @@ $httpd->reg_cb (
 			$return = encode_json($return);
 			$req->respond ({ content => ['application/json',  $return ]});
 		}
+	# TODO: Replace these static file requests with a function to make adding new static files easier
 	},
 	'/main.css' => sub {
 		my ($httpd, $req) = @_;
@@ -825,6 +792,11 @@ $httpd->reg_cb (
 		my ($httpd, $req) = @_;
 		
 		$req->respond({ content => ['', $static->{'logo'}] });
+	},
+	'/favicon.ico' => sub {
+		my ($httpd, $req) = @_;
+		
+		$req->respond({ content => ['', $static->{'favicon'}] });
 	},
 );
 
