@@ -13,7 +13,7 @@ END
 sub dbUpdate {
 	my ($dbVersion) = @_;
 	
-	foreach my $u ( keys %$dbUpdates ){
+	foreach my $u ( sort keys %$dbUpdates ){
 		if ( Perl::Version->new($u)->numify > $dbVersion->numify ){
 			my $batch = DBIx::MultiStatementDo->new( dbh => $dbh );
 			$batch->do($dbUpdates->{$u});
