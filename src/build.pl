@@ -27,6 +27,11 @@ sub loadSupportFiles {
 	binmode(LOGOFILE);
 	$static->{'logo'} = join("", <LOGOFILE>);
 	close(LOGOFILE);
+
+	open(FAVICONFILE, '<favicon.ico');
+	binmode(FAVICONFILE);
+	$static->{'favicon'} = join("", <FAVICONFILE>);
+	close(FAVICONFILE);
 }
 
 sub checkConfigFile {
@@ -35,6 +40,10 @@ sub checkConfigFile {
 	} else {
 		return 0;
 	}
+}
+
+sub openBrowser {
+		#Do nothing
 }
 
 return 1;

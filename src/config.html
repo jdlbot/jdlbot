@@ -3,11 +3,12 @@ var updateConfig = function()\{
 	var configVars = \{
 					  'port' : $('#port').val(),
 					  'check_update' : testCheckBox('#check_update'),
+					  'open_browser' : testCheckBox('#open_browser'),
 					  'jd_address' : $('#jd_address').val(),
 					  'jd_port' : $('#jd_port').val()
 					  \};
 	$.post('/config',
-		   'action=update&data=' + JSON.stringify(configVars),
+		   'action=update&data=' + escape(JSON.stringify(configVars)),
 		   function(data)\{
 				if( data.status === 'success' )\{
 					notify($('span.notify'), data.status, 'green');
@@ -44,6 +45,7 @@ $(document).ready(function()\{
 </script>
 <p>jDlBot http server port: <input type="text" id="port" value="{ $port }" title="If you modify this, you will need to restart jDlBot."/></p>
 <p>jDlBot check for updates: <input type="checkbox" id="check_update" { $check_update } ></p>
+<p>Open jDlBot web interface in default browser on startup: <input type="checkbox" id="open_browser" { $open_browser } ></p>
 <p>jDownloader Web Interface address: <input type="text" id="jd_address" value="{ $jd_address }" title="Include username/pass if necessary.  Note that this is the Web Interface and not remote control." /></p>
 <p>jDownloader Web Interface port: <input type="text" id="jd_port" value="{ $jd_port }" /></p>
 <span class="notify"><input type="button" onclick="updateConfig();" value="Update Configuration" /></span>

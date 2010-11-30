@@ -3,7 +3,7 @@ var addFilter = function(){
 	var $id = $('#new_filter_form');
 	var filterVars = getFilterValues($id);
 	$.post('/filters',
-		   'action=add&data=' + JSON.stringify(filterVars),
+		   'action=add&data=' + escape(JSON.stringify(filterVars)),
 		   function(data){
 			if(data.status === 'success'){
 				notify($id.find('span.notify'), data.status, 'green');
@@ -18,7 +18,7 @@ var addFilter = function(){
 var updateFilter = function($id){
 	var filterVars = getFilterValues($id);
 	$.post('/filters',
-		   'action=update&data=' + JSON.stringify(filterVars),
+		   'action=update&data=' + escape(JSON.stringify(filterVars)),
 		   function(data){
 			if(data.status === 'success'){
 				fillInFilter($id, data.filter);
@@ -38,7 +38,7 @@ var enableFilter = function($id){
 					  'enabled' : testCheckBox($id.find('input[name=enabled]'))
 					  };
 	$.post('/filters',
-		   'action=update&data=' + JSON.stringify(filterVars),
+		   'action=update&data=' + escape(JSON.stringify(filterVars)),
 		   function(data){
 			if(data.status === 'success'){
 				notify($id.find('span.display'), data.status, 'green');
@@ -56,7 +56,7 @@ var deleteFilter = function($id){
 					  'title' : $id.find('input[name=old_title]').val()
 					  };
 	$.post('/filters',
-		   'action=delete&data=' + JSON.stringify(filterVars),
+		   'action=delete&data=' + escape(JSON.stringify(filterVars)),
 		   function(data){
 			if(data.status === 'success'){
 				$id.remove();
@@ -71,7 +71,7 @@ var deleteFilter = function($id){
 var listFilters = function(){
 	var filterVars = {};
 	$.post('/filters',
-		   'action=list&data=' + JSON.stringify(filterVars),
+		   'action=list&data=' + escape(JSON.stringify(filterVars)),
 		   function(data){
 			if(data.status === 'success'){
 				for ( var i = 0; i < filterCount; i++ ){
@@ -153,13 +153,13 @@ var getFilterValues = function($id){
 			if ( $(this).is(':checkbox') ){
 				filterVars[this.name] = testCheckBox(this);
 			} else {
-				filterVars[this.name] = $(this).val().replace(/\+/g, ':plus-sign:');
+				filterVars[this.name] = $(this).val();
 			}
 		});
 	filterVars.feeds = function(){
 		var feeds_checked = [];
 		$id.find('ul.feed_list :checked').each(function(){
-			feeds_checked.push($(this).val().replace(/=/g, ':equal-sign:'));
+			feeds_checked.push($(this).val());
 		});
 		
 		return JSON.stringify(feeds_checked);
@@ -187,7 +187,12 @@ var insertFilter = function(data){
 }
 
 var fillInFilter = function($id, data){
-	$id.find('span.display span').text(data.title);
+	
+	if ( data.tv_last !== "" ){
+		$id.find('span.display span').text(data.title + " - Last Episode: " + data.tv_last);
+	} else {
+		$id.find('span.display span').text(data.title);
+	}
 	for (var i in data){
 		if (data[i] === 'TRUE' || data[i] === 'FALSE'){
 			if (data[i] === 'TRUE'){

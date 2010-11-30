@@ -2,6 +2,7 @@ use EV;
 use AnyEvent::Impl::EV;
 use AnyEvent::HTTPD;
 use AnyEvent::HTTP;
+# Set the UserAgent for external async requests.  Don't want to get flagged, do we?
 $AnyEvent::HTTP::USERAGENT = 'Mozilla/5.0 (Windows; U; Windows NT 6.1; en-US; rv:1.9.2.10) Gecko/20100914 Firefox/3.6.10 ( .NET CLR 3.5.30729)';
 
 use PAR;
@@ -21,10 +22,14 @@ use Getopt::Long;
 use Perl::Version;
 use DBI;
 use DBIx::MultiStatementDo;
+
+# PAR doesn't work correctly without this, could be included in the command line
 use Moose::Meta::Object::Trait;
 
 require('build.pl');
 
+# Timeout for synchronous web requests
+#  Usually this is only used to talk to the JD web interface
 $ua->timeout(5);
 
 # Encapsulate configuration code
@@ -35,12 +40,14 @@ $ua->timeout(5);
 	my $configfile = "";
 	my $versionFlag;
 	
-	my $version = Perl::Version->new("0.1.1");
+	my $version = Perl::Version->new("0.1.2");
 	
-	GetOptions("port=i" => \$port,
-			   "directory=s" => \$directory,
-			   "configdir=s" => \$configdir,
-			   "version" => \$versionFlag);
+	# Command line startup options
+	#  Usage: jdlbotServer(.exe) [-d|--directory=dir] [-p|--port=port#] [-c|--configdir=dir] [-v|--version]
+	GetOptions("port=i" => \$port, # Port for the local web server to run on
+			   "directory=s" => \$directory, # Directory to change to after starting (for dev mostly)
+			   "configdir=s" => \$configdir, # Where your config files are located
+			   "version" => \$versionFlag); # Get the version number
 	
 	if( $versionFlag ){
 		print STDERR "jDlBot! version $version\n";
@@ -69,8 +76,10 @@ $ua->timeout(5);
 		dbUpdate($dbVersion);
 		
 		print STDERR "Update successful.\n";
+		%config = fetchConfig();
 	}
 
+	# Port setting from the command line is temporary
 	if( $port ){
 		$config{'port'} = $port;
 	}
@@ -79,7 +88,8 @@ $ua->timeout(5);
 loadSupportFiles();
 
 sub fetchConfig {
-	my $configArrayRef = $dbh->selectall_arrayref( q( SELECT param, value FROM config ) ) or die "Can't fetch configuration\n";
+	my $configArrayRef = $dbh->selectall_arrayref( q( SELECT param, value FROM config ) )
+		or die "Can't fetch configuration\n";
 	
 	my %tempConfig = ();
 	foreach my $cfgParam (@$configArrayRef){
@@ -89,11 +99,13 @@ sub fetchConfig {
 	return %tempConfig;
 }
 
+# Feed watchers
 $watchers = {};
 sub addWatcher {
 	my ($url, $interval, $follow_links) = @_;
 	
-	$watchers->{$url} = AnyEvent->timer(after		=>	5,
+	$watchers->{$url} = AnyEvent->timer(
+										after		=>	5,
 										interval	=>	$interval * 60,
 										cb			=>	sub {
 											print STDERR "Running watcher: " . $url . "\n";
@@ -224,6 +236,12 @@ sub checkTvMatch {
 	my $tv_type;
 	my $tv_last;
 	
+	# Make sure that we're working with the latest and greatest tv_last
+	my $sth = $dbh->prepare('SELECT tv_last FROM filters WHERE title=? LIMIT 1');
+	$sth->execute($filter->{'title'});
+	if( $sth->errstr ){ return 0; }
+	$filter->{'tv_last'} = ($sth->fetchall_arrayref())->[0]->[0];
+	
 	if ( $filter->{'tv_last'} ){
 		$tv_last = determineTvType( $filter->{'tv_last'} );
 		if ( ! $filter->{'new_tv_last'} ){ $filter->{'new_tv_last'} = []; }
@@ -291,6 +309,7 @@ sub findLinks {
 	my $count = 0;
 	CONTENT: foreach my $content ( @{$filter->{'matches'}} ){
 		
+		# This little bit of ugliness pulls out all the links in a document
 		my @links = ( $content =~ /\b(([\w-]+:\/\/?|www[.])[^\s()<>]+(?:\([\w\d]+\)|([^[:punct:]\s]|\/)))/g );
 		my $prevLink;
 		my $linksToProcess = [];
@@ -324,17 +343,19 @@ sub findLinks {
 						next CONTENT;
 					}
 				}
-				my $qh = $dbh->prepare('UPDATE filters SET tv_last=? WHERE title=?');
-				$qh->execute($filter->{'new_tv_last'}->[0], $filter->{'title'});
-				push(@{$filter->{'new_tv_last_has'}}, $filter->{'new_tv_last'}->[$count]);
-				
 				# Status message?
 				print STDERR "Sending links for filter: " . $filter->{'title'} . "\n";
-				sendToJd($linksToProcess, $filter);
+				if (sendToJd($linksToProcess, $filter)){
+					my $qh = $dbh->prepare('UPDATE filters SET tv_last=? WHERE title=?');
+					$qh->execute($filter->{'new_tv_last'}->[0], $filter->{'title'});
+					push(@{$filter->{'new_tv_last_has'}}, $filter->{'new_tv_last'}->[$count]);
+				}
+				#sendToJd($linksToProcess, $filter);
 			} else {
 				print STDERR "Sending links for filter: " . $filter->{'title'} . "\n";
-				sendToJd($linksToProcess, $filter);
-				return;
+				if(sendToJd($linksToProcess, $filter)){
+					return;
+				}
 			}
 		}
 		
@@ -342,65 +363,18 @@ sub findLinks {
 	}
 }
 
-#  Old link adding code using the remote control jDownloader interface.
-#
-#sub sendToJd {
-#	my ( $links, $filter ) = @_;
-#	
-#	if ( $filter->{'enabled'} eq 'FALSE' ){ return; }
-#	
-#	my $jdInfo = $config{'jd_address'} . ":" . $config{'jd_port'};
-#	my $jdStart = $filter->{'autostart'} eq 'TRUE' ? 1 : 0;
-#	my $jdGrab = $filter->{'show_linkgrab'} eq 'TRUE' ? 1 : 0;
-#	
-#	@$links = map { uri_escape($_, "?&"); } @$links;
-#	
-#	#my $url = "http://$jdInfo/action/add/links/grabber$jdGrab/start$jdStart/" . join(' ', @$links);
-#	#print "$url\n\n";
-#
-#	my $sendLink = sub {
-#		my $sendLink = shift;
-#		
-#		my $link = shift(@$links);
-#		my $url = "http://$jdInfo/action/add/links/grabber$jdGrab/start$jdStart/$link";
-#		print $url . "\n";
-#		http_get( $url , sub {
-#				my ($body, $hdr) = @_;
-#		  
-#				if ($hdr->{Status} =~ /^2/) {
-#					if (scalar @$links > 0){
-#						$sendLink->($sendLink);
-#					} else {
-#					
-#						if ( $filter->{'stop_found'} eq 'TRUE' ){
-#							$filter->{'enabled'} = 'FALSE';
-#							my $qh = $dbh->prepare(q( UPDATE filters SET enabled='FALSE' WHERE title=? ));
-#							$qh->execute($filter->{'title'});
-#							
-#							print $qh->errstr . "\n"
-#						}
-#					}
-#					
-#					print "$body\n";
-#				   #scrapeRss($url, $body, $filters);
-#				} else {
-#				   print "error, $hdr->{Status} $hdr->{Reason}\n";
-#				}
-#			});
-#	};
-#	$sendLink->($sendLink);
-#}
-
+# sendToJd is to remain synchronous for the time being.
+#  Returns 1 for success, 0 for failure.
 sub sendToJd {
 	my ( $links, $filter ) = @_;
 	
-	if ( $filter->{'enabled'} eq 'FALSE' ){ return; }
+	if ( $filter->{'enabled'} eq 'FALSE' ){ return 0; }
 	
 	my $jdInfo = $config{'jd_address'} . ":" . $config{'jd_port'};
 	my $jdStart = $filter->{'autostart'} eq 'TRUE' ? 1 : 0;
 
 	my $c = get("http://$jdInfo/link_adder.tmpl");
-	if (! $c ){ return; }
+	if (! $c ){ return 0; }
 
 	my $s = scraper {
 		process "tr.package", "packages[]" => scraper {
@@ -412,6 +386,7 @@ sub sendToJd {
 		};
 		process "tr.downloadoffline, tr.downloadonline", "files[]" => scraper {
 			process 'input[name="package_single_add"]', fnum => '@value';
+			process 'td[style="padding-left: 30px;"]', name => 'TEXT';
 		};
 	};
 	
@@ -449,6 +424,8 @@ sub sendToJd {
 		
 		my $nexthighestName = $res->{packages}->[(scalar @{$res->{packages}}) - 1]->{name};
 		
+		# Wait for JDownloader to scrape the sent links
+		#  This can result in changes to the number of packages added as JD does its magic
 		while ($nexthighestName eq 'Unchecked'){
 			$c = get("http://$jdInfo/link_adder.tmpl");
 			$res = $s->scrape($c);
@@ -457,8 +434,9 @@ sub sendToJd {
 			$nexthighestName = $res->{packages}->[(scalar @{$res->{packages}}) - 1]->{name};
 		}
 		my $singleFiles = '';
+		my @high_range = ($highest + 1)..$nexthighest;
 		foreach my $file (@{$res->{files}}){
-			foreach(($highest + 1)..$nexthighest){
+			foreach(@high_range){
 				if ( index($file->{fnum}, $_) == 0 ){
 					$file->{fnum} =~ s/ /+/g;
 					$singleFiles .= 'package_single_add=' . $file->{fnum} . '&';
@@ -466,39 +444,98 @@ sub sendToJd {
 			}
 		}
 		
-		my $contentString = 'do=Submit&package_all_add=' . join('&package_all_add=',(($highest + 1)..$nexthighest) ) .
+		my $contentString = 'do=Submit&package_all_add=' . join('&package_all_add=',@high_range) .
 							'&' . $singleFiles . 'selected_dowhat_link_adder=';
 		
-		my $isOffline = 0;
 		if ( $res->{offline} ){
-			LINKS: foreach my $link (@{$res->{offline}}){
-				foreach(($highest + 1)..$nexthighest ){
+			foreach my $link (@{$res->{offline}}){
+				foreach(@high_range){
 					if( index($link->{onum}, $_) == 0 ){
-						$isOffline = 1;
 						$ua->post("http://$jdInfo/link_adder.tmpl", Content => $contentString . 'remove');
-						last LINKS;
+						
+						print STDERR "Links offline for : " . $filter->{'title'} . " removing.\n";
+						
+						return 0;
 					}
 				}
 			}
 		}
-		if ( ! $isOffline && $jdStart ) {
+
+		# This looks convoluted, but it checks to see if there are missing part* files or r* files for the links added
+		{
+			my $test_name = sub {
+				if ( $_->{name} =~ /\.part(\d+)\.rar/i ){
+					return $1;
+				} else {
+					return undef;
+				}
+			};
+			
+			my $test_package = sub {
+				my $package = shift;
+				if ( scalar(grep($package->{num} == $_, @high_range)) > 0 ) {
+					return 1;
+				} else {
+					return 0;
+				}
+			};
+			
+			my @packages = grep($test_package->($_), @{$res->{packages}});
+			
+			if (scalar(@packages) == 1){
+				if ( $packages[0]->{name} =~ m/sample\.(avi|mkv)$/i ){
+					$ua->post("http://$jdInfo/link_adder.tmpl", Content => $contentString . 'remove');
+						
+					print STDERR "Only sample file matched filter : " . $filter->{'title'} . " removing.\n";
+					
+					return 0;
+				}
+			}
+			
+			PACKAGES: foreach my $package (@packages){
+				my @matches = grep(index($_->{name}, $package->{name}) == 0, @{$res->{files}});
+				my @results = sort {$a <=> $b} grep($_ ne undef, map($test_name->($_), @matches));
+				
+				if ( ! @results ){ next PACKAGES; }
+				my @result_range = 1..($results[scalar(@results) - 1 >= 0 ? scalar(@results) - 1 : 0]);
+				
+				# Checks to see if the guessed number of parts are present or if a single "part" is present
+				#  Why a fail on a single "part#" ?  Because things are split into parts when there are MULTIPLE.
+				#  If a ".part1" is returned, then we need to detect and fail on this condition.
+				if ( scalar(@results) != scalar(@result_range) || scalar(@results) == 1 ){
+					$ua->post("http://$jdInfo/link_adder.tmpl", Content => $contentString . 'remove');
+						
+					print STDERR "Links missing parts for : " . $filter->{'title'} . " removing.\n";
+					
+					return 0;
+				}
+			}
+		}
+		
+		if ( $jdStart ) {
 			$ua->post("http://$jdInfo/link_adder.tmpl", Content => $contentString . 'add');
 			$ua->post("http://$jdInfo/index.tmpl", Content => 'do=start');
 		}
-		if ( ! $isOffline && $filter->{'stop_found'} eq 'TRUE' ){
+		if ( $filter->{'stop_found'} eq 'TRUE' ){
 			$filter->{'enabled'} = 'FALSE';
 			my $qh = $dbh->prepare(q( UPDATE filters SET enabled='FALSE' WHERE title=? ));
 			$qh->execute($filter->{'title'});
 		}
 		
+		return 1;
+		
 	} else {
 		print STDERR "Failed to connect to JD : " . $response->status_line . "\n";
+		return 0;
 	}
 }
 
 
 my $httpd = AnyEvent::HTTPD->new (host => '127.0.0.1', port => $config{'port'});
-	print STDERR "Server running on port: $config{'port'}\n";
+	print STDERR "Server running on port: $config{'port'}\n" .
+	"Open http://127.0.0.1:$config{'port'}/ in your favorite web browser to continue.\n\n";
+	
+	if( $config{'open_browser'} eq 'TRUE' ){openBrowser();}
 
 $httpd->reg_cb (
 	'/' => sub {
@@ -530,12 +567,13 @@ $httpd->reg_cb (
 		my $configHtml = $templates{'config'}->fill_in(HASH => {'port' => $config{'port'},
 																'jd_address' => $config{'jd_address'},
 																'jd_port' => $config{'jd_port'},
-																'check_update' => $config{'check_update'} eq 'TRUE' ? 'checked="checked"' : ''
+																'check_update' => $config{'check_update'} eq 'TRUE' ? 'checked="checked"' : '',
+																'open_browser' => $config{'open_browser'} eq 'TRUE' ? 'checked="checked"' : ''
 																});
 		$req->respond ({ content => ['text/html', $templates{'base'}->fill_in(HASH => {'title' => 'Configuration', 'content' => $configHtml}) ]});
 		} elsif ( $req->method() eq 'POST' ){
 			if( $req->parm('action') eq 'update' ){
-				my $configParams = decode_json($req->parm('data'));
+				my $configParams = decode_json(uri_unescape($req->parm('data')));
 				my $qh = $dbh->prepare('UPDATE config SET value=? WHERE param=?');
 				foreach my $param (%$configParams){
 					$qh->execute($configParams->{$param}, $param);
@@ -562,9 +600,7 @@ $httpd->reg_cb (
 		} elsif ( $req->method() eq 'POST' ){
 			my $return = {'status' => 'failure'};
 			if( $req->parm('action') =~ /add|update|enable/){
-				my $reqData = $req->parm('data');
-				$reqData =~ s/:equal-sign:/=/g;
-				my $feedParams = decode_json($reqData);
+				my $feedParams = decode_json(uri_unescape($req->parm('data')));
 				$feedParams->{'url'} =~ s/^http:\/\///;
 				my $feedData = get('http://' . $feedParams->{'url'});
 				
@@ -648,9 +684,7 @@ $httpd->reg_cb (
 					$return->{'status'} = "Could not fetch RSS feed, check the url";
 				}
 			} elsif ( $req->parm('action') eq 'delete' ) {
-				my $reqData = $req->parm('data');
-				$reqData =~ s/:equal-sign:/=/g;
-				my $feedParams = decode_json($reqData);
+				my $feedParams = decode_json(uri_unescape($req->parm('data')));
 				$feedParams->{'url'} =~ s/^http:\/\///;
 				
 				$return->{'status'} = "Could not delete feed.  Incorrect url?";
@@ -706,10 +740,7 @@ $httpd->reg_cb (
 		} elsif ( $req->method() eq 'POST' ){
 			my $return = {'status' => 'failure'};
 			if( $req->parm('action') =~ /^(add|update|delete|list)$/ ){
-				my $reqData = $req->parm('data');
-				$reqData =~ s/:plus-sign:/+/g;
-				$reqData =~ s/:equal-sign:/=/g;
-				my $filterParams = decode_json($reqData);
+				my $filterParams = decode_json($req->parm('data'));
 				
 				my $qh;
 				if ( $req->parm('action') eq 'add' ){
@@ -764,6 +795,7 @@ $httpd->reg_cb (
 			$return = encode_json($return);
 			$req->respond ({ content => ['application/json',  $return ]});
 		}
+	# TODO: Replace these static file requests with a function to make adding new static files easier
 	},
 	'/main.css' => sub {
 		my ($httpd, $req) = @_;
@@ -773,12 +805,17 @@ $httpd->reg_cb (
 	'/bt.js' => sub {
 		my ($httpd, $req) = @_;
 		
-		$req->respond({ content => ['text/css', $static->{'bt.js'}] });
+		$req->respond({ content => ['text/javascript', $static->{'bt.js'}] });
 	},
 	'/logo.png' => sub {
 		my ($httpd, $req) = @_;
 		
 		$req->respond({ content => ['', $static->{'logo'}] });
+	},
+	'/favicon.ico' => sub {
+		my ($httpd, $req) = @_;
+		
+		$req->respond({ content => ['', $static->{'favicon'}] });
 	},
 );
 
