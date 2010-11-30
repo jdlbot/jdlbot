@@ -76,6 +76,7 @@ $ua->timeout(5);
 		dbUpdate($dbVersion);
 		
 		print STDERR "Update successful.\n";
+		%config = fetchConfig();
 	}
 
 	# Port setting from the command line is temporary
