@@ -2,7 +2,7 @@ CREATE TABLE "config" ("param" TEXT PRIMARY KEY  NOT NULL  UNIQUE , "value" TEXT
 INSERT INTO "config" VALUES('port','10050');
 INSERT INTO "config" VALUES('jd_port','8765');
 INSERT INTO "config" VALUES('jd_address','JD:JD@127.0.0.1');
-INSERT INTO "config" VALUES('version','0.1.1');
+INSERT INTO "config" VALUES('version','0.1.2');
 INSERT INTO "config" VALUES('check_update','TRUE');
 INSERT INTO "config" VALUES('open_browser','TRUE');
 CREATE TABLE "feeds" ("url" TEXT PRIMARY KEY  NOT NULL  UNIQUE , "interval" INTEGER, "follow_links" BOOL NOT NULL  DEFAULT FALSE, "last_processed" INTEGER, "enabled" BOOL NOT NULL  DEFAULT TRUE);

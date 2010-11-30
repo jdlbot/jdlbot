@@ -9,7 +9,7 @@
 	<key>CFBundleExecutable</key>
 	<string>jDlBot</string>
 	<key>CFBundleGetInfoString</key>
-	<string>jDlBot 0.1.1 Copyright 2010 jdlbot</string>
+	<string>jDlBot 0.1.2 Copyright 2010 jdlbot</string>
 	<key>CFBundleIconFile</key>
 	<string>appIcon.icns</string>
 	<key>CFBundleIdentifier</key>
@@ -21,7 +21,7 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.1.1</string>
+	<string>0.1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>LSEnvironment</key>
@@ -35,7 +35,7 @@
 	<key>NSAppleScriptEnabled</key>
 	<false/>
 	<key>NSHumanReadableCopyright</key>
-	<string>jDlBot 0.1.1 Copyright 2010 jdlbot</string>
+	<string>jDlBot 0.1.2 Copyright 2010 jdlbot</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
