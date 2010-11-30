@@ -29,6 +29,7 @@ use Moose::Meta::Object::Trait;
 require('build.pl');
 
 # Timeout for synchronous web requests
+#  Usually this is only used to talk to the JD web interface
 $ua->timeout(5);
 
 # Encapsulate configuration code
@@ -234,6 +235,12 @@ sub checkTvMatch {
 	my $tv_type;
 	my $tv_last;
 	
+	# Make sure that we're working with the latest and greatest tv_last
+	my $sth = $dbh->prepare('SELECT tv_last FROM filters WHERE title=? LIMIT 1');
+	$sth->execute($filter->{'title'});
+	if( $sth->errstr ){ return 0; }
+	$filter->{'tv_last'} = ($sth->fetchall_arrayref())->[0]->[0];
+	
 	if ( $filter->{'tv_last'} ){
 		$tv_last = determineTvType( $filter->{'tv_last'} );
 		if ( ! $filter->{'new_tv_last'} ){ $filter->{'new_tv_last'} = []; }
@@ -301,6 +308,7 @@ sub findLinks {
 	my $count = 0;
 	CONTENT: foreach my $content ( @{$filter->{'matches'}} ){
 		
+		# This little bit of ugliness pulls out all the links in a document
 		my @links = ( $content =~ /\b(([\w-]+:\/\/?|www[.])[^\s()<>]+(?:\([\w\d]+\)|([^[:punct:]\s]|\/)))/g );
 		my $prevLink;
 		my $linksToProcess = [];
@@ -425,8 +433,9 @@ sub sendToJd {
 			$nexthighestName = $res->{packages}->[(scalar @{$res->{packages}}) - 1]->{name};
 		}
 		my $singleFiles = '';
+		my @high_range = ($highest + 1)..$nexthighest;
 		foreach my $file (@{$res->{files}}){
-			foreach(($highest + 1)..$nexthighest){
+			foreach(@high_range){
 				if ( index($file->{fnum}, $_) == 0 ){
 					$file->{fnum} =~ s/ /+/g;
 					$singleFiles .= 'package_single_add=' . $file->{fnum} . '&';
@@ -434,12 +443,12 @@ sub sendToJd {
 			}
 		}
 		
-		my $contentString = 'do=Submit&package_all_add=' . join('&package_all_add=',(($highest + 1)..$nexthighest) ) .
+		my $contentString = 'do=Submit&package_all_add=' . join('&package_all_add=',@high_range) .
 							'&' . $singleFiles . 'selected_dowhat_link_adder=';
 		
 		if ( $res->{offline} ){
 			foreach my $link (@{$res->{offline}}){
-				foreach(($highest + 1)..$nexthighest ){
+				foreach(@high_range){
 					if( index($link->{onum}, $_) == 0 ){
 						$ua->post("http://$jdInfo/link_adder.tmpl", Content => $contentString . 'remove');
 						
@@ -453,9 +462,8 @@ sub sendToJd {
 
 		# This looks convoluted, but it checks to see if there are missing part* files or r* files for the links added
 		{
-			my @high_range = ($highest + 1)..$nexthighest;
 			my $test_name = sub {
-				if ( $_->{name} =~ /\.part(\d+)/i ){
+				if ( $_->{name} =~ /\.part(\d+)\.rar/i ){
 					return $1;
 				} else {
 					return undef;
@@ -472,6 +480,16 @@ sub sendToJd {
 			};
 			
 			my @packages = grep($test_package->($_), @{$res->{packages}});
+			
+			if (scalar(@packages) == 1){
+				if ( $packages[0]->{name} =~ m/sample\.(avi|mkv)$/i ){
+					$ua->post("http://$jdInfo/link_adder.tmpl", Content => $contentString . 'remove');
+						
+					print STDERR "Only sample file matched filter : " . $filter->{'title'} . " removing.\n";
+					
+					return 0;
+				}
+			}
 			
 			PACKAGES: foreach my $package (@packages){
 				my @matches = grep(index($_->{name}, $package->{name}) == 0, @{$res->{files}});
