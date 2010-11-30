@@ -40,7 +40,7 @@ $ua->timeout(5);
 	my $configfile = "";
 	my $versionFlag;
 	
-	my $version = Perl::Version->new("0.1.1");
+	my $version = Perl::Version->new("0.1.2");
 	
 	# Command line startup options
 	#  Usage: jdlbotServer(.exe) [-d|--directory=dir] [-p|--port=port#] [-c|--configdir=dir] [-v|--version]
