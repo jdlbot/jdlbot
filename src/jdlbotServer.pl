@@ -31,6 +31,9 @@ require('build.pl');
 # Timeout for synchronous web requests
 #  Usually this is only used to talk to the JD web interface
 $ua->timeout(5);
+# Set the useragent to the same string as the Async HTTP module
+$ua->agent($AnyEvent::HTTP::USERAGENT);
+
 
 # Encapsulate configuration code
 {
@@ -820,3 +823,4 @@ $httpd->reg_cb (
 );
 
 $httpd->run; # making a AnyEvent condition variable would also work
+
