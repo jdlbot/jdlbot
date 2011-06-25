@@ -27,11 +27,6 @@ use JdlBot::UA;
 # Set the UserAgent for external async requests.  Don't want to get flagged, do we?
 $AnyEvent::HTTP::USERAGENT = JdlBot::UA::getAgent();
 
-# PAR doesn't work correctly without these, could be included in the command line
-use Moose::Meta::Object::Trait;
-use Package::Stash::XS;
-
-require('build.pl');
 
 # Timeout for synchronous web requests
 #  Usually this is only used to talk to the JD web interface
@@ -65,12 +60,22 @@ $ua->agent(JdlBot::UA::getAgent());
 	if( $directory ){
 		chdir($directory);
 	}
-	
+
+	if( PAR::read_file('build.txt') ){
+		if( $^O eq 'darwin' ) {
+			require JdlBot::Build::Mac; 
+		} elsif( $^O =~ /MSWin/ ){
+			require JdlBot::Build::Win;
+		}
+	} else {
+		require JdlBot::Build::Perl;
+	}
+
 	my $configFile = checkConfigFile();
 	unless ( $configFile ){
 		die "Could not find config file.\n";
-	}
-	
+	}	
+
 	$dbh = DBI->connect("dbi:SQLite:dbname=$configFile","","") or
 		die "Could not open config file.\n";
 	%config = fetchConfig();
