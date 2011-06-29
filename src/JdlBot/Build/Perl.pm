@@ -13,6 +13,10 @@ sub loadSupportFiles {
 	open(FEEDSFILE, '<feeds.html');
 	$static->{'feeds'} = join("", <FEEDSFILE>);
 	close(FEEDSFILE);
+
+	open(LINKTYPESFILE, '<linktypes.html');
+	$static->{'linktypes'} = join("", <LINKTYPESFILE>);
+	close(LINKTYPESFILE);
 	
 	open(CSSFILE, '<main.css');
 	$static->{'css'} = join("", <CSSFILE>);

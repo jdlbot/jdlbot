@@ -43,7 +43,7 @@ $ua->agent(JdlBot::UA::getAgent());
 	my $configfile = "";
 	my $versionFlag;
 	
-	my $version = Perl::Version->new("0.1.2");
+	my $version = Perl::Version->new("0.1.3");
 	
 	# Command line startup options
 	#  Usage: jdlbotServer(.exe) [-d|--directory=dir] [-p|--port=port#] [-c|--configdir=dir] [-v|--version]
@@ -236,7 +236,7 @@ $httpd->reg_cb (
 						$parseError = 1;
 					};
 					
-					if( $rssFeed->title() && $parseError != 1){
+					if( defined($rssFeed) && $parseError != 1){
 						my $qh;
 						if ( $req->parm('action') eq 'add' ){
 							$qh = $dbh->prepare(q(INSERT INTO feeds VALUES ( ? , ? , ? , NULL, 'TRUE' )));
@@ -354,6 +354,67 @@ $httpd->reg_cb (
 			$req->respond ({ content => ['application/json',  $return ]});
 		}
 	},
+	'/linktypes' => sub{
+		my ($httpd, $req) = @_;
+		if( $req->method() eq 'GET' ){
+		
+		$req->respond ({ content => ['text/html', $templates{'base'}->fill_in(HASH => {'title' => 'Link Types', 'content' => $static->{'linktypes'}}) ]});
+		
+		} elsif ( $req->method() eq 'POST' ){
+			my $return = {'status' => 'failure'};
+			if( $req->parm('action') =~ /^(add|update|delete|list)$/ ){
+
+				my $qh;
+				if ( $req->parm('action') eq 'list' ){
+					$return->{'status'} = "Could not fetch list of Link Types.";
+	
+					$return->{'linktypes'} = $dbh->selectall_arrayref(q( SELECT * FROM linktypes ORDER BY priority ), { Slice => {} });
+				} elsif ( $req->parm('action') eq 'update' ){
+					my $linktypeParams = decode_json(uri_unescape($req->parm('data')));
+					$return->{'status'} = "Could not update list of Link Types.";
+
+					my @fields = sort keys %{$linktypeParams->[0]};
+					$qh = $dbh->prepare(sprintf('UPDATE linktypes SET %s=? WHERE linkhost=?', join("=?, ", @fields)));
+
+					foreach my $linktype (@{$linktypeParams}){
+						my @values = @{$linktype}{@fields};
+						push(@values, $linktype->{linkhost});
+						$qh->execute(@values);
+					}
+					
+				} elsif ( $req->parm('action') eq 'delete' ){
+					my $linktypeParams = decode_json(uri_unescape($req->parm('data')));
+					$return->{'status'} = "Could not delete Link Type.";
+					
+					$qh = $dbh->prepare('DELETE FROM linktypes WHERE linkhost=?');
+					$qh->execute($linktypeParams->{'linkhost'});
+
+				} elsif ( $req->parm('action') eq 'add' ){
+					my $linktypeParams = decode_json(uri_unescape($req->parm('data')));
+					$return->{'status'} = "Could not add Link Type.";
+					
+					my @fields = sort keys %$linktypeParams;
+					my @values = @{$linktypeParams}{@fields};
+					$qh = $dbh->prepare(sprintf('INSERT INTO linktypes (%s) VALUES (%s)', join(",", @fields), join(",", ("?")x@fields)));
+					$qh->execute(@values);
+					if ( ! $qh->errstr ){
+						$qh = $dbh->prepare('SELECT * FROM linktypes WHERE linkhost=?');
+						$qh->execute($linktypeParams->{'linkhost'});
+						$return->{'linktype'} = $qh->fetchrow_hashref();
+					}
+				}
+
+				if(!$dbh->errstr){
+					$return->{'status'} = 'success';
+				}
+				
+	
+			}
+			$return = encode_json($return);
+			$req->respond ({ content => ['application/json',  $return ]});
+					
+		}
+	},
 	'/filters' => sub{
 		my ($httpd, $req) = @_;
 		if( $req->method() eq 'GET' ){
@@ -399,14 +460,7 @@ $httpd->reg_cb (
 				} elsif ( $req->parm('action') eq 'list' ){
 					$return->{'status'} = "Could not fetch list of filters.";
 	
-					my $myFilters = $dbh->selectall_hashref(q( SELECT * FROM filters ORDER BY title ), 'title');
-					
-					# God... why doesn't it return the hash in the proper order??!?!
-					my $count = 0;
-					foreach my $key ( sort keys %{$myFilters} ){
-						$return->{'filters'}[$count] = $myFilters->{$key};
-						$count++;
-					}
+					$return->{'filters'} = $dbh->selectall_arrayref(q( SELECT * FROM filters ORDER BY title ), { Slice => {} });
 				}
 					
 				if(!$dbh->errstr){

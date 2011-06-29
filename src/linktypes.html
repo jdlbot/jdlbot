@@ -1,0 +1,188 @@
+<script type="text/javascript">
+var addLinktype = function(){
+	var $id = $('#new_linktype_form');
+	var linktypeVars = getLinktypeValues($id);
+	
+	$.post('/linktypes',
+		   'action=add&data=' + escape(JSON.stringify(linktypeVars)),
+		   function(data){
+			if(data.status === 'success'){
+				insertLinktype(data.linktype);
+				notify($id.find('span.notify'), data.status, 'green');
+			} else {
+				notify($id.find('span.notify'), data.status, 'red');
+			}
+		   },
+		   'json');
+}
+
+var updateLinktypes = function(){
+	var linktypeVars = getAllLinktypeValues();
+	
+	$.post('/linktypes',
+		   'action=update&data=' + escape(JSON.stringify(linktypeVars)),
+		   function(data){
+			if(data.status === 'success'){
+				listLinktypes();
+			} else {
+				notify($('#update_linktype span.notify'), data.status, 'red');
+			}
+		   },
+		   'json');
+}
+
+var deleteLinktype = function($id){
+	var linktypeVars = {
+					  'linkhost' : $id.find('input[name=linkhost]').val()
+					  };
+	$.post('/linktypes',
+		   'action=delete&data=' + escape(JSON.stringify(linktypeVars)),
+		   function(data){
+			if(data.status === 'success'){
+				//notify($('#new_linktype_form').find('span.notify'), data.status, 'green');
+				$id.remove();
+			} else {
+				notify($id.find('span.notify'), data.status, 'red');
+			}
+		   },
+		   'json');
+}
+
+
+var getLinktypeValues = function($id){
+	var linktypeVars = {};
+	
+	$id.find('input').not(':button').each(function(){
+			if ( $(this).is(':checkbox') ){
+				linktypeVars[this.name] = testCheckBox(this);
+			} else {
+				linktypeVars[this.name] = $(this).val()
+			}
+		});
+	
+	return linktypeVars;
+}
+
+var getAllLinktypeValues = function(){
+	var linktypesVars = [];
+
+	for ( var i = 1; i != linktypeCount; i++ ){
+		linktypesVars.push(getLinktypeValues($('#l' + i)));
+	}
+	
+	return linktypesVars;
+}
+
+
+var linktypeCount = 0;
+
+var listLinktypes = function(callback){
+	$.post('/linktypes',
+	   'action=list',
+	   function(data){
+		if(data.status === 'success'){
+			for ( var i = 0; i < linktypeCount; i++ ){
+				$('#l' + i).remove();
+			}
+			linktypeCount = 0;
+			
+			for ( var i in data.linktypes ){
+				insertLinktype(data.linktypes[i]);
+			}
+
+			if ( callback ){
+				callback();
+			}
+
+		} else {
+			notify($('#new_linktype_form').find('span.notify'), data.status, 'red');
+		}
+	   },
+	   'json');
+}
+
+var insertLinktype = function(data){
+	var id = 'l' + linktypeCount;
+
+	var newLinktype = document.getElementById('linktype_template').cloneNode(true);
+	newLinktype.id = id;
+	newLinktype.style.display = 'none';
+
+	$('#update_linktype').before(newLinktype);
+	linktypeCount++;
+	
+	$id = $(newLinktype);
+	fillInLinktype($id, data);
+
+	$id.slideDown(400)
+	
+	return id;
+}
+
+var fillInLinktype = function($id, data){
+	for (var i in data){
+		if (data[i] === 'TRUE' || data[i] === 'FALSE'){
+			if (data[i] === 'TRUE'){ $id.find('input[name=' + i + ']').attr('checked', true); }
+		} else {
+			$id.find('input[name=' + i + ']').val(data[i]);
+		}
+	}
+	$id.find(':button').each(function(){
+		$(this).data('pli', $id);
+	});
+}
+
+var testCheckBox = function(s){
+	if ( $(s).is(':checked') ){
+		return 'TRUE';
+	} else {
+		return 'FALSE';
+	}
+}
+
+var notify = function($id, message, color){
+	
+	$id.data('bt-content-orig', '');
+	//$id.attr("title", message);
+	$id.bt(message, {
+		trigger: 'none',
+		fill: color,
+		cssStyles: {color: '#FFF'},
+		});
+	$id.btOn();
+}
+
+$(document).ready(function(){
+	listLinktypes();
+
+	$('#new_linktype_form').find(':button[value=Add]').bind('click', function(){
+			addLinktype();
+		});
+	$('#linktypes').delegate('#update_linktype input', 'click', function(){
+			updateLinktypes();
+		});
+	$('#linktypes').delegate(':button[value=Delete]', 'click', function(){
+			deleteLinktype($(this).data('pli'));
+		});
+	$('#linktypes').delegate(':input[name=priority]', 'keyup', function(){
+			$(this).val($(this).val().replace(/[^0-9]/g, ''));
+		});
+});
+</script>
+<ul id="linktypes">
+<li><span style="position: relative; left: 1.1em;">Host/Url fragment</span>
+	<span style="position: relative; left: 5.5em;">Priority</span></li>
+<li id="update_linktype"><input type="button" value="Update Link Type list" /><span class="notify"></span></li>
+<li id="new_linktype_form">
+<p>Add a new Link Type</p>
+Host/Url fragment: <input name="linkhost" type="text" /> Priority: <input name="priority" type="number" value="1" />
+<input type="button" value="Add" />
+<span class="notify"></span>
+</li>
+<li id="linktype_template" style="display: none;">
+<span class="notify"><input name="enabled" type="checkbox" /> <input name="linkhost" type="text" disabled="disabled" /> 
+<input name="priority" type="number" /> <input type="button" value="Delete" /></span>
+</li>
+</ul>
+
+

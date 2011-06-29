@@ -1,6 +1,8 @@
 
 package JdlBot::Feed;
 
+use Data::Dumper;
+
 use XML::FeedPP;
 use Error qw(:try);
 use AnyEvent::HTTP;
@@ -103,12 +105,12 @@ sub scrape {
 sub findLinks {
 	my ($filter, $dbh, $config) = @_;
 	
-	my $regex;
+	my $linkhosts = [];
 	if ( $filter->{'link_types'} ){
-		$regex = $filter->{'link_types'};
-		$regex = qr/$regex/;
+		my $regex = $filter->{'link_types'};
+		$linkhosts->[0] = $regex;
 	} else {
-		$regex = qr/megaupload|netload.in|depositfiles.com/;
+		$linkhosts = $dbh->selectall_arrayref("SELECT linkhost FROM linktypes WHERE enabled='TRUE' ORDER BY priority");
 	}
 	
 	my $count = 0;
@@ -118,53 +120,64 @@ sub findLinks {
 		my @links = ( $content =~ /\b(([\w-]+:\/\/?|www[.])[^\s()<>]+(?:\([\w\d]+\)|([^[:punct:]\s]|\/)))/g );
 		my $prevLink;
 		my $linksToProcess = [];
-		foreach my $link (@links){
-			my ($linkType) = ( $link =~ /^http:\/\/([^\/]+)\// );
-			if ( ! $linkType ){ next; }
-			
-			# If the link type is appropriate;
-			#   This needs to be replaced by a function that checks against a list of domains
-			if ( $linkType =~ $regex ){
-				if ($filter->{'proc_all'} eq 'TRUE'){ push(@$linksToProcess, $link); next; }
+		foreach my $linkhost ( @{$linkhosts} ){
+
+			my $regex = $linkhost->[0];
+			$regex = qr/$regex/;
+			foreach my $link (@links){
+				my ($linkType) = ( $link =~ /^http:\/\/([^\/]+)\// );
+				if ( ! $linkType ){ next; }
 				
-				if ( ! $prevLink ){ $prevLink = $linkType; }
-				
-				if ( $linkType eq $prevLink ){
-					push(@$linksToProcess, $link);
-				} else {
-					last;
-				}
-			}
-			if ( $prevLink ){ $prevLink = $linkType; }
-		}
-		
-		if ( scalar @$linksToProcess > 0 ){
-			if ( $filter->{'tv'} eq 'TRUE' ){
-				unless ( $filter->{'new_tv_last_has'} ){
-					$filter->{'new_tv_last_has'} = [];
-				}
-				foreach my $tvhas ( @{$filter->{'new_tv_last_has'}}){
-					if ( $filter->{'new_tv_last'}->[$count] eq $tvhas ){
-						next CONTENT;
+				# If the link type is appropriate;
+				#   This needs to be replaced by a function that checks against a list of domains
+				if ( $linkType =~ $regex ){
+					if ($filter->{'proc_all'} eq 'TRUE'){ push(@$linksToProcess, $link); next; }
+					
+					if ( ! $prevLink ){ $prevLink = $linkType; }
+					
+					if ( $linkType eq $prevLink ){
+						push(@$linksToProcess, $link);
+					} else {
+						last;
 					}
 				}
-				# Status message?
-				print STDERR "Sending links for filter: " . $filter->{'title'} . "\n";
-				if (JdlBot::LinkHandler::JD::processLinks($linksToProcess, $filter, $dbh, $config)){
-					my $qh = $dbh->prepare('UPDATE filters SET tv_last=? WHERE title=?');
-					$qh->execute($filter->{'new_tv_last'}->[0], $filter->{'title'});
-					push(@{$filter->{'new_tv_last_has'}}, $filter->{'new_tv_last'}->[$count]);
-				}
-				#sendToJd($linksToProcess, $filter);
-			} else {
-				print STDERR "Sending links for filter: " . $filter->{'title'} . "\n";
-				if(JdlBot::LinkHandler::JD::processLinks($linksToProcess, $filter, $dbh, $config)){
-					return;
+				if ( $prevLink ){ $prevLink = $linkType; }
+			}
+
+			if ( scalar @$linksToProcess > 0 ){
+				if ( $filter->{'tv'} eq 'TRUE' ){
+					unless ( $filter->{'new_tv_last_has'} ){
+						$filter->{'new_tv_last_has'} = [];
+					}
+					foreach my $tvhas ( @{$filter->{'new_tv_last_has'}}){
+						if ( $filter->{'new_tv_last'}->[$count] eq $tvhas ){
+							next CONTENT;
+						}
+					}
+					# Status message?
+					print STDERR "Sending links for filter: " . $filter->{'title'} . "\n";
+					if (JdlBot::LinkHandler::JD::processLinks($linksToProcess, $filter, $dbh, $config)){
+						my $qh = $dbh->prepare('UPDATE filters SET tv_last=? WHERE title=?');
+						$qh->execute($filter->{'new_tv_last'}->[0], $filter->{'title'});
+						push(@{$filter->{'new_tv_last_has'}}, $filter->{'new_tv_last'}->[$count]);
+						next CONTENT;
+					} else {
+						$linksToProcess = [];
+					}
+					#sendToJd($linksToProcess, $filter);
+				} else {
+					print STDERR "Sending links for filter: " . $filter->{'title'} . "\n";
+					if(JdlBot::LinkHandler::JD::processLinks($linksToProcess, $filter, $dbh, $config)){
+						return;
+					} else {
+						$linksToProcess = [];
+					}
 				}
 			}
 		}
 		
 		$count++;
+	
 	}
 }
 
