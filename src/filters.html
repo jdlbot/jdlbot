@@ -267,7 +267,7 @@ $(document).ready(function(){
 		<p>Filter 1 : <input type="text" name="filter1" title="You should be as specific as possible.  While a blank filter is permissible, you will match EVERY link entry in an RSS feed."/> Regex? <input type="checkbox" name="regex1" /></p>
 		<p>Filter 2 : <input type="text" name="filter2" title="This filter is used as a secondary check if the feed is set to 'follow links'.  When the link is loaded, the page is searched for this term.  Typical use case could be an IMDB link to make sure you have the right movie." /> Regex? <input type="checkbox" name="regex2" /></p>
 		<p>Feeds : <ul class="feed_list"></ul></p>
-		<p>Link Types : <input type="text" name="link_types" title="Link types to permit to look for.  If you have multiple, they must be | delimited.  For example: megaupload|hotfile" /></p>
+		<p>Link Types : <input type="text" name="link_types" title="This field is to override the default link types to use in the <a href='/linktypes'>Link Types list</a>.  If the field is used, multiple types must be | delimited.  For example: megaupload|hotfile" /></p>
 		<p>Disable when found : <input type="checkbox" name="stop_found"  checked="checked" title="Does exactly what it says.  If there is a positive match, and links are found this filter will be disabled." /></p>
 		<div class="tv">TV : <input type="checkbox" name="tv" />
 			<p style="display: none;">Last : <input type="text" name="tv_last" title="This field should be either a season and episode number (formatted as 'S01E01') or a date (formatted as '2010/10/30').  TV episodes that come after the designated 'last' will be downloaded. Optional." /></p></div>
