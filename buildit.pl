@@ -18,9 +18,6 @@ my $filesToAdd = "";
 my $copyTo = (dir( cwd , 'build', 'current' ))->stringify;
 my $copyFrom = (dir( cwd ))->stringify;
 my $path_sep = '\/';
-if( $^O =~ /MSWin/ ){
-	$path_sep = '\\';
-}
 
 print "Copying source files into build/current\n\n";
 
@@ -30,7 +27,6 @@ find( { wanted => sub {
 			my $toName = $File::Find::name;
 			$toName =~ s/^src$path_sep//;
 			print "$toName\n";
-			#print $copyFrom . $File::Find::name . " ->  " . $copyTo . $toName . "\n";
 			rcopy( (file($copyFrom , $File::Find::name))->stringify , (file($copyTo , $toName))->stringify );
 			$filesToAdd .= " -a $toName";
 		}
@@ -48,7 +44,7 @@ if ( $^O =~ /MSWin/ ){
 	copy((file('build', 'win', 'jdlbot.ico'))->stringify, (file($builddir, 'jdlbot.ico'))->stringify);
 	
 	chdir($builddir);
-	my $result = `pp -M attributes -l LibXML $filesToAdd --icon jdlbot.ico -o jdlbotServer.exe jdlbotServer.pl`;
+	my $result = `pp -M attributes -l LibXML $filesToAdd $modulesToAdd --icon jdlbot.ico -o jdlbotServer.exe jdlbotServer.pl`;
 	
 	print $result;
 	if ( $? != 0 ){ die "Build failed.\n"; }
@@ -67,7 +63,18 @@ if ( $^O =~ /MSWin/ ){
 	print "\nMac OS X build.\n\n";
 	
 	chdir($builddir);
-	my $result = `pp -l libxml2 $filesToAdd $modulesToAdd -o jdlbotServer jdlbotServer.pl`;
+	my $libxml = '-l /usr/lib/libxml2.dylib';
+	if( `which brew` ){
+		my $brew_xml_dir = `brew --cellar libxml2`;
+		$brew_xml_dir =~ s/\n|\r//g;
+		if( -d "$brew_xml_dir" ){
+			$brew_xml_dir = `brew --prefix libxml2`;
+			$brew_xml_dir =~ s/\n|\r//g;
+			$libxml = "-l $brew_xml_dir/lib/libxml2.dylib";
+		}
+	}
+	
+	my $result = `pp $libxml $filesToAdd $modulesToAdd -o jdlbotServer jdlbotServer.pl`;
 	
 	print $result;
 	if ( $? != 0 ){ die "Build failed.\n"; }
@@ -92,3 +99,4 @@ remove_tree($builddir, {keep_root => 1});
 
 print "Done.\n";
 exit(0);
+
