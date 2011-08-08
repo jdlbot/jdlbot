@@ -25,15 +25,17 @@ jDlBot is an RSS feed and web scraper that finds and sends links to [jDownloader
 
 4.  Run it:  `perl jdlbotServer.pl`.
 
+5.  Point your browser at [127.0.0.1:10050](http://127.0.0.1:10050/) (do NOT use IE).
+
 If you have problems, please check the [wiki](http://github.com/jdlbot/jdlbot/wiki).
 
 ## Features
 
-*   Support for RSS1 & 2 and Atom feeds
+*   Support for RSS1, 2 and Atom feeds
 
 *   Option to follow feed links and scrape the resulting pages for links
 
-    This is handy for some feeds where links only appear in comments fields
+    This is handy for some feeds where links only appear in comments
 
 *   Primary and secondary filters
 
@@ -45,13 +47,18 @@ If you have problems, please check the [wiki](http://github.com/jdlbot/jdlbot/wi
 
 *   Auto-disable option after a successful filter addition
 
+    For things you only want to get *once*
+
 *   Filters can apply to multiple feeds
 
 *   Filters can specify which types of links to retrieve
 
+*   Global Link Type priority list
+
+    Allows you to download from your preferred hosts consistently
+
 ## Todo
 
 *   Implement some kind of history tracking
-*   Implement link type database/priority system
 *   Implement retry on failed or offline link
 *   Suggest something!

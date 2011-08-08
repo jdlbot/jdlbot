@@ -33,7 +33,8 @@ $(document).ready(function()\{
 					\});
 					
 					if ( highestVersion !== version )\{
-						$('#check_update').html("<h3>New Version! " + highestVersion[1] + "</h3>");
+						var dlLink = /http:\/\/.\{1,\}$/.exec(highestVersion[1]);
+						$('#check_update').html("<h3>New Version! v" + highestVersion[0][0] + ' , Get it here: <a href="' + dlLink + '">' + dlLink + '</a>' + "</h3>");
 					\} else \{
 						$('#check_update').html("<h3>No new updates</h3>");
 					\}

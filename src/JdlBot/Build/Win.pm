@@ -1,4 +1,3 @@
-#!perl
 
 use File::Copy;
 
@@ -11,6 +10,7 @@ sub loadSupportFiles {
 	$static = {};
 	$static->{'filters'} = PAR::read_file('filters.html');
 	$static->{'feeds'} = PAR::read_file('feeds.html');
+	$static->{'linktypes'} = PAR::read_file('linktypes.html');
 	$static->{'css'} = PAR::read_file('main.css');
 	$static->{'bt.js'} = PAR::read_file('jquery.bt.js');
 	$static->{'logo'} = PAR::read_file('jdlbot_logo.png');
@@ -36,4 +36,4 @@ sub openBrowser {
 	`start http://127.0.0.1:$config{'port'}/`;
 }
 
-return 1;
+1;

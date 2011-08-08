@@ -1,4 +1,4 @@
 CFBundleName = "jDlBot";
-CFBundleShortVersionString = "0.1.2";
-CFBundleGetInfoString = "jDlBot version 0.1.2 Copyright 2010 jdlbot";
-NSHumanReadableCopyright = "Copyright 2010 jdlbot.";
+CFBundleShortVersionString = "0.1.3";
+CFBundleGetInfoString = "jDlBot version 0.1.3 Copyright 2011 jdlbot";
+NSHumanReadableCopyright = "Copyright 2011 jdlbot.";

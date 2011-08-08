@@ -3,48 +3,48 @@
 
 # Building with pp does NOT WORK with perl v5.10.0
 #  v5.10.0 will produce strange behavior in PAR applications
+#  Use Perl v5.10.1 and above only.
 
 use File::Copy;
 use File::Copy::Recursive qw(fcopy rcopy dircopy);
 use Path::Class;
 use File::Path qw(make_path remove_tree);
+use File::Find;
+use Cwd;
 
-opendir(SRC, 'src');
-my @srcfiles = readdir(SRC);
-closedir(SRC);
+my $modulesToAdd = "-M Moose::Meta::Object::Trait -M Package::Stash::XS";
+my $filesToAdd = "";
 
-my @filelist = ();
-while (@srcfiles){
-	my $file = pop(@srcfiles);
-	
-	if ( $file !~ /^\./ ){
-		push(@filelist, $file);
+my $copyTo = (dir( cwd , 'build', 'current' ))->stringify;
+my $copyFrom = (dir( cwd ))->stringify;
+my $path_sep = '\/';
+
+print "Copying source files into build/current\n\n";
+
+find( { wanted => sub {
+	if( $_ !~ /^\./ ){
+		if( -f (file($copyFrom , $File::Find::name))->stringify ){
+			my $toName = $File::Find::name;
+			$toName =~ s/^src$path_sep//;
+			print "$toName\n";
+			rcopy( (file($copyFrom , $File::Find::name))->stringify , (file($copyTo , $toName))->stringify );
+			$filesToAdd .= " -a $toName";
+		}
 	}
-}
+} , no_chdir => 0 }, 'src');
 
 my $builddir = (dir('build', 'current'))->stringify;
 if ( ! -d $builddir ){
 	make_path($builddir);
 }
 
-print "\nCopying files to build folder.\n\n";
-my $filesToAdd = "";
-foreach my $file (@filelist){
-	my $src = (file('src', $file))->stringify;
-	my $dest = (file('build', 'current', $file))->stringify;
-	print "$src, $dest\n";
-	$filesToAdd .= "-a " . $file . " ";
-	copy($src, $dest);
-}
-
 if ( $^O =~ /MSWin/ ){
 	print "\nWindows build.\n\n";
 	
-	copy((file('build', 'win', 'build.pl'))->stringify, (file('build', 'current', 'build.pl'))->stringify);
-	copy((file('build', 'win', 'jdlbot.ico'))->stringify, (file('build', 'current', 'jdlbot.ico'))->stringify);
+	copy((file('build', 'win', 'jdlbot.ico'))->stringify, (file($builddir, 'jdlbot.ico'))->stringify);
 	
-	chdir((dir('build', 'current'))->stringify);
-	my $result = `pp -M attributes -l LibXML $filesToAdd --icon jdlbot.ico -o jdlbotServer.exe jdlbotServer.pl`;
+	chdir($builddir);
+	my $result = `pp -M attributes -l LibXML $filesToAdd $modulesToAdd --icon jdlbot.ico -o jdlbotServer.exe jdlbotServer.pl`;
 	
 	print $result;
 	if ( $? != 0 ){ die "Build failed.\n"; }
@@ -55,17 +55,26 @@ if ( $^O =~ /MSWin/ ){
 		make_path($distdir);
 	}
 	
-	fcopy((file('build', 'current', 'jdlbotServer.exe'))->stringify, (file('dist', 'jdlbotServer.exe'))->stringify);
+	fcopy((file($builddir , 'jdlbotServer.exe'))->stringify, (file('dist', 'jdlbotServer.exe'))->stringify);
 	`explorer dist`;
 	print "Build successful.\n";
 	
 } elsif ( $^O eq 'darwin' ){
 	print "\nMac OS X build.\n\n";
 	
-	copy((file('build', 'mac', 'build.pl'))->stringify, (file('build', 'current', 'build.pl'))->stringify);
+	chdir($builddir);
+	my $libxml = '-l /usr/lib/libxml2.dylib';
+	if( `which brew` ){
+		my $brew_xml_dir = `brew --cellar libxml2`;
+		$brew_xml_dir =~ s/\n|\r//g;
+		if( -d "$brew_xml_dir" ){
+			$brew_xml_dir = `brew --prefix libxml2`;
+			$brew_xml_dir =~ s/\n|\r//g;
+			$libxml = "-l $brew_xml_dir/lib/libxml2.dylib";
+		}
+	}
 	
-	chdir((dir('build', 'current'))->stringify);
-	my $result = `pp -l libxml2 $filesToAdd -o jdlbotServer jdlbotServer.pl`;
+	my $result = `pp $libxml $filesToAdd $modulesToAdd -o jdlbotServer jdlbotServer.pl`;
 	
 	print $result;
 	if ( $? != 0 ){ die "Build failed.\n"; }
@@ -86,7 +95,8 @@ if ( $^O =~ /MSWin/ ){
 }
 
 print "Cleaning build folders.\n";
-remove_tree((dir('build', 'current'))->stringify, {keep_root => 1});
+remove_tree($builddir, {keep_root => 1});
 
 print "Done.\n";
 exit(0);
+
