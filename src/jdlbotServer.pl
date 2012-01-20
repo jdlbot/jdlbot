@@ -84,10 +84,10 @@ $ua->agent(JdlBot::UA::getAgent());
 	my $dbVersion = Perl::Version->new($config{'version'});
 	if ( $version->numify > $dbVersion->numify ){
 		print STDERR "Updating config...\n";
-		
-		require 'dbupdate.pl';
-		dbUpdate($dbVersion);
-		
+
+		require JdlBot::DbUpdate;
+		JdlBot::DbUpdate::update($dbVersion, $dbh);
+
 		print STDERR "Update successful.\n";
 		%config = fetchConfig();
 	}

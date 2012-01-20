@@ -1,3 +1,4 @@
+package DbUpdate;
 
 my $dbUpdates = {
 				 '0.1.1' => <<END,
@@ -35,3 +36,5 @@ sub dbUpdate {
 		}
 	}
 }
+
+1;
