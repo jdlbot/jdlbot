@@ -15,7 +15,6 @@ INSERT INTO "linktypes" VALUES ('fileserve.com', 40, 'FALSE');
 INSERT INTO "linktypes" VALUES ('filesonic.com', 40, 'FALSE');
 INSERT INTO "linktypes" VALUES ('wupload.com', 40, 'FALSE');
 
-INSERT INTO "linktypes" VALUES ('megaupload.com', 50, 'TRUE');
 INSERT INTO "linktypes" VALUES ('netload.in', 50, 'TRUE');
 INSERT INTO "linktypes" VALUES ('depositfiles.com', 50, 'TRUE');
 INSERT INTO "linktypes" VALUES ('duckload.com', 50, 'TRUE');
