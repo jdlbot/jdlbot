@@ -25,6 +25,8 @@ sub loadSupportFiles {
 	$static->{'bt.js'} = PAR::read_file('jquery.bt.js');
 	$static->{'logo'} = PAR::read_file('jdlbot_logo.png');
 	$static->{'favicon'} = PAR::read_file('favicon.ico');
+
+	return 1;
 }
 
 sub checkConfigFile {
@@ -44,6 +46,7 @@ sub checkConfigFile {
 
 sub openBrowser {
 	`open http://127.0.0.1:$main::config{'port'}/`;
+	return 1;
 }
 
 1;
