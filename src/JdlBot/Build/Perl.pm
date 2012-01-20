@@ -1,4 +1,13 @@
 
+package JdlBot::Build::Perl;
+
+use strict;
+use warnings;
+
+require Exporter;
+our @ISA = qw(Exporter);
+our @EXPORT_OK = qw(%templates $static loadSupportFiles checkConfigFile openBrowser);
+
 sub loadSupportFiles {
 	%templates = ();
 	$templates{'base'} = Text::Template->new(TYPE => 'FILE',  SOURCE => 'base.html');

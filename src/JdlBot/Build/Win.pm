@@ -1,5 +1,13 @@
 
+package JdlBot::Build::Win;
+
+use strict;
+use warnings;
+
 use File::Copy;
+require Exporter;
+our @ISA = qw(Exporter);
+our @EXPORT_OK = qw(%templates $static loadSupportFiles checkConfigFile openBrowser);
 
 sub loadSupportFiles {
 	%templates = ();
@@ -33,7 +41,7 @@ sub checkConfigFile {
 }
 
 sub openBrowser {
-	`start http://127.0.0.1:$config{'port'}/`;
+	`start http://127.0.0.1:$main::config{'port'}/`;
 }
 
 1;

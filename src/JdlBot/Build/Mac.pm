@@ -1,15 +1,23 @@
 
+package JdlBot::Build::Mac;
+
+use strict;
+use warnings;
+
 use File::Copy;
+require Exporter;
+our @ISA = qw(Exporter);
+our @EXPORT_OK = qw(%templates $static loadSupportFiles checkConfigFile openBrowser);
 
 print "Mac include\n";
 
 sub loadSupportFiles {
-	%templates = ();
+	our %templates = ();
 	$templates{'base'} = Text::Template->new(TYPE => 'STRING',  SOURCE => PAR::read_file('base.html'));
 	$templates{'config'} = Text::Template->new(TYPE => 'STRING',  SOURCE => PAR::read_file('config.html'));
 	$templates{'status'} = Text::Template->new(TYPE => 'STRING',  SOURCE => PAR::read_file('status.html'));
 	
-	$static = {};
+	our $static = {};
 	$static->{'filters'} = PAR::read_file('filters.html');
 	$static->{'feeds'} = PAR::read_file('feeds.html');
 	$static->{'linktypes'} = PAR::read_file('linktypes.html');
@@ -35,7 +43,7 @@ sub checkConfigFile {
 }
 
 sub openBrowser {
-	`open http://127.0.0.1:$config{'port'}/`;
+	`open http://127.0.0.1:$main::config{'port'}/`;
 }
 
 1;

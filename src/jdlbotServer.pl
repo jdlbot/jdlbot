@@ -61,14 +61,18 @@ $ua->agent(JdlBot::UA::getAgent());
 		chdir($directory);
 	}
 
+	my @build_imports = qw(%templates $static loadSupportFiles checkConfigFile openBrowser);
 	if( PAR::read_file('build.txt') ){
 		if( $^O eq 'darwin' ) {
 			require JdlBot::Build::Mac; 
+			import JdlBot::Build::Mac @build_imports;
 		} elsif( $^O =~ /MSWin/ ){
 			require JdlBot::Build::Win;
+			import JdlBot::Build::Win @build_imports;
 		}
 	} else {
 		require JdlBot::Build::Perl;
+		import JdlBot::Build::Perl @build_imports;
 	}
 
 	my $configFile = checkConfigFile();
