@@ -1,15 +1,19 @@
 
 package JdlBot::Feed;
 
+use strict;
+use warnings;
+
 use Data::Dumper;
 
 use XML::FeedPP;
 use Error qw(:try);
 use AnyEvent::HTTP;
+use List::MoreUtils qw(uniq);
 
 use JdlBot::UA;
 use JdlBot::TV;
-use JdlBot::LinkHandler::JD;
+use JdlBot::LinkHandler::JD2;
 
 $AnyEvent::HTTP::USERAGENT = JdlBot::UA::getAgent();
 
@@ -50,6 +54,7 @@ sub scrape {
 				}
 				if ( ! $filters->{$filter}->{'matches'} ){ $filters->{$filter}->{'matches'} = []; }
 				push(@{$filters->{$filter}->{'matches'}}, $item->description());
+				push(@{$filters->{$filter}->{'matches'}}, $item->link());
 				
 				if ( $follow_links eq 'TRUE' ){
 					$filters->{$filter}->{'outstanding'} += 1;
@@ -100,6 +105,8 @@ sub scrape {
 	foreach my $filter ( keys %{ $filters } ){
 		findLinks($filters->{$filter}, $dbh, $config);
 	}
+
+	return 0;
 }
 
 sub findLinks {
@@ -131,20 +138,12 @@ sub findLinks {
 				# If the link type is appropriate;
 				#   This needs to be replaced by a function that checks against a list of domains
 				if ( $linkType =~ $regex ){
-					if ($filter->{'proc_all'} eq 'TRUE'){ push(@$linksToProcess, $link); next; }
-					
-					if ( ! $prevLink ){ $prevLink = $linkType; }
-					
-					if ( $linkType eq $prevLink ){
-						push(@$linksToProcess, $link);
-					} else {
-						last;
-					}
+					push(@$linksToProcess, $link);
 				}
-				if ( $prevLink ){ $prevLink = $linkType; }
 			}
 
 			if ( scalar @$linksToProcess > 0 ){
+				@$linksToProcess = uniq(@$linksToProcess);
 				if ( $filter->{'tv'} eq 'TRUE' ){
 					unless ( $filter->{'new_tv_last_has'} ){
 						$filter->{'new_tv_last_has'} = [];
@@ -155,8 +154,8 @@ sub findLinks {
 						}
 					}
 					# Status message?
-					print STDERR "Sending links for filter: " . $filter->{'title'} . "\n";
-					if (JdlBot::LinkHandler::JD::processLinks($linksToProcess, $filter, $dbh, $config)){
+					print STDERR "Sending links for filter: " . $filter->{'title'} . " ...";
+					if (JdlBot::LinkHandler::JD2::processLinks($linksToProcess, $filter, $dbh, $config)){
 						my $qh = $dbh->prepare('UPDATE filters SET tv_last=? WHERE title=?');
 						$qh->execute($filter->{'new_tv_last'}->[0], $filter->{'title'});
 						push(@{$filter->{'new_tv_last_has'}}, $filter->{'new_tv_last'}->[$count]);
@@ -166,8 +165,8 @@ sub findLinks {
 					}
 					#sendToJd($linksToProcess, $filter);
 				} else {
-					print STDERR "Sending links for filter: " . $filter->{'title'} . "\n";
-					if(JdlBot::LinkHandler::JD::processLinks($linksToProcess, $filter, $dbh, $config)){
+					print STDERR "Sending links for filter: " . $filter->{'title'} . " ...";
+					if(JdlBot::LinkHandler::JD2::processLinks($linksToProcess, $filter, $dbh, $config)){
 						return;
 					} else {
 						$linksToProcess = [];
@@ -179,6 +178,8 @@ sub findLinks {
 		$count++;
 	
 	}
+
+	return 0;
 }
 
 # sendToJd is to remain synchronous for the time being.
