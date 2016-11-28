@@ -154,7 +154,7 @@ sub findLinks {
 						}
 					}
 					# Status message?
-					print STDERR "Sending links for filter: " . $filter->{'title'} . "\n";
+					print STDERR "Sending links for filter: " . $filter->{'title'} . " ...";
 					if (JdlBot::LinkHandler::JD2::processLinks($linksToProcess, $filter, $dbh, $config)){
 						my $qh = $dbh->prepare('UPDATE filters SET tv_last=? WHERE title=?');
 						$qh->execute($filter->{'new_tv_last'}->[0], $filter->{'title'});
@@ -165,7 +165,7 @@ sub findLinks {
 					}
 					#sendToJd($linksToProcess, $filter);
 				} else {
-					print STDERR "Sending links for filter: " . $filter->{'title'} . "\n";
+					print STDERR "Sending links for filter: " . $filter->{'title'} . " ...";
 					if(JdlBot::LinkHandler::JD2::processLinks($linksToProcess, $filter, $dbh, $config)){
 						return;
 					} else {

@@ -27,9 +27,10 @@ sub processLinks {
 	if ( !$c ) { return 0; }
 
 	my $newlinks = join( "\r\n", @$links );
+	my $response;
 	$newlinks = uri_escape($newlinks);
 	if ($jdStart) {
-		my $response = $ua->post(
+		$response = $ua->post(
 			"http://$jdInfo/add",
 			[
 				'source'    => 'http://localhost/',
@@ -37,22 +38,24 @@ sub processLinks {
 				'autostart' => 1
 			]
 		);
+		
 	}
 	else {
-		my $response =
-		  $ua->post( "http://$jdInfo/add",
+		$response = $ua->post( "http://$jdInfo/add",
 			[ 'source' => 'http://localhost/', 'urls' => $newlinks ] );
 	}
-
-	if ( $filter->{'stop_found'} eq 'TRUE' ) {
-		$filter->{'enabled'} = 'FALSE';
-		my $qh =
-		  $dbh->prepare(q( UPDATE filters SET enabled='FALSE' WHERE title=? ));
-		$qh->execute( $filter->{'title'} );
+	if ( $response->is_success  ){
+		print STDERR " success.\n";
+		if ( $filter->{'stop_found'} eq 'TRUE' ) {
+			$filter->{'enabled'} = 'FALSE';
+			my $qh =
+			  $dbh->prepare(q( UPDATE filters SET enabled='FALSE' WHERE title=? ));
+			$qh->execute( $filter->{'title'} );
+		}
+		return 1;
+	} else {
+		print STDERR " failed.\n";
+		return 0;
 	}
-
-	return 1;
-
-	print "Got to the end of JD::process\n";
 }
 
