@@ -6,15 +6,19 @@ use warnings;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(%templates $static loadSupportFiles checkConfigFile openBrowser);
+our @EXPORT = qw(loadTemplates loadStatic checkConfigFile openBrowser);
 
-sub loadSupportFiles {
-	our %templates = ();
+sub loadTemplates {
+	my %templates = ();
 	$templates{'base'} = Text::Template->new(TYPE => 'FILE',  SOURCE => 'base.html');
 	$templates{'config'} = Text::Template->new(TYPE => 'FILE',  SOURCE => 'config.html');
 	$templates{'status'} = Text::Template->new(TYPE => 'FILE',  SOURCE => 'status.html');
+	
+	return %templates;
+}
 
-	our $static = {};
+sub loadStatic {
+	my $static = {};
 	my $file;
 	open($file, '<', 'filters.html');
 	$static->{'filters'} = join("", <$file>);
@@ -46,7 +50,7 @@ sub loadSupportFiles {
 	$static->{'favicon'} = join("", <$file>);
 	close($file);
 
-	return 1;
+	return $static;
 }
 
 sub checkConfigFile {

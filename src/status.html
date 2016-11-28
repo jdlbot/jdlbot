@@ -43,11 +43,11 @@ $(document).ready(function()\{
 \});
 
 </script>
-<p>Server running on <a href="http://127.0.0.1:{ $port }">localhost, port: { $port }</a> , Version { $version }</p>
+<p>Server running on <a href="http://127.0.0.1:{ $port }/flash">localhost, port: { $port }</a> , Version { $version }</p>
 { if ($status){
-	$OUT .= "<p>JDownloader Web Interface found at <a href=\"http://$jd_address:$jd_port/\">$jd_address, port: $jd_port</a></p>";
+	$OUT .= "<p>JDownloader <a href=\"http://jdownloader.org/knowledge/wiki/glossary/cnl2\" target=\"_blank\">Click'n'Load API</a> Interface found at <a href=\"http://$jd_address:$jd_port/flash\" target=\"_blank\">$jd_address, port: $jd_port</a></p>";
 } else {
-	$OUT .= "<p>JDownloader Web Interface NOT found at <a href=\"http://$jd_address:$jd_port/\">$jd_address, port: $jd_port</a></p>\n" .
+	$OUT .= "<p>JDownloader <a href=\"http://jdownloader.org/knowledge/wiki/glossary/cnl2\" target=\"_blank\">Click'n'Load API</a> Interface NOT found at <a href=\"http://$jd_address:$jd_port/flash\" target=\"_blank\">$jd_address, port: $jd_port</a></p>\n" .
 	"<p>Please check your <a href=\"/config\">configuration</a></p>";
 }}
 

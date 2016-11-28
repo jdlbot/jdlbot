@@ -78,8 +78,7 @@ my($dbh, %config, $watchers, %templates, $static);
 			import JdlBot::Build::Win @build_imports;
 		}
 	} else {
-		require JdlBot::Build::Perl;
-		import JdlBot::Build::Perl @build_imports;
+		use JdlBot::Build::Perl;
 	}
 
 	my $configFile = checkConfigFile();
@@ -109,7 +108,8 @@ my($dbh, %config, $watchers, %templates, $static);
 	}
 }
 
-loadSupportFiles();
+%templates = loadTemplates();
+$static = loadStatic();
 
 sub fetchConfig {
 	my $configArrayRef = $dbh->selectall_arrayref( q( SELECT param, value FROM config ) )
@@ -180,7 +180,7 @@ $httpd->reg_cb (
 
 		my $status;
 
-		if ( get("http://$config{'jd_address'}:$config{'jd_port'}/") ){
+		if ( get("http://$config{'jd_address'}:$config{'jd_port'}/flash") ){
 			$status = 1
 		} else {
 			$status = 0;

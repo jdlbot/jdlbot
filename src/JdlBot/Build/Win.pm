@@ -7,7 +7,7 @@ use warnings;
 use File::Copy;
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(%templates $static loadSupportFiles checkConfigFile openBrowser);
+our @EXPORT = qw(loadTemplates loadStatic checkConfigFile openBrowser);
 
 sub loadSupportFiles {
 	our %templates = ();
@@ -15,7 +15,11 @@ sub loadSupportFiles {
 	$templates{'config'} = Text::Template->new(TYPE => 'STRING',  SOURCE => PAR::read_file('config.html'));
 	$templates{'status'} = Text::Template->new(TYPE => 'STRING',  SOURCE => PAR::read_file('status.html'));
 	
-	our $static = {};
+	return %templates;
+}
+
+sub loadStatic {
+	my $static = {};
 	$static->{'filters'} = PAR::read_file('filters.html');
 	$static->{'feeds'} = PAR::read_file('feeds.html');
 	$static->{'linktypes'} = PAR::read_file('linktypes.html');
@@ -24,7 +28,7 @@ sub loadSupportFiles {
 	$static->{'logo'} = PAR::read_file('jdlbot_logo.png');
 	$static->{'favicon'} = PAR::read_file('favicon.ico');
 
-	return 1;
+	return $static;
 }
 
 sub checkConfigFile {
