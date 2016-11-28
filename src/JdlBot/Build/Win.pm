@@ -1,13 +1,21 @@
 
+package JdlBot::Build::Win;
+
+use strict;
+use warnings;
+
 use File::Copy;
+require Exporter;
+our @ISA = qw(Exporter);
+our @EXPORT_OK = qw(%templates $static loadSupportFiles checkConfigFile openBrowser);
 
 sub loadSupportFiles {
-	%templates = ();
+	our %templates = ();
 	$templates{'base'} = Text::Template->new(TYPE => 'STRING',  SOURCE => PAR::read_file('base.html'));
 	$templates{'config'} = Text::Template->new(TYPE => 'STRING',  SOURCE => PAR::read_file('config.html'));
 	$templates{'status'} = Text::Template->new(TYPE => 'STRING',  SOURCE => PAR::read_file('status.html'));
 	
-	$static = {};
+	our $static = {};
 	$static->{'filters'} = PAR::read_file('filters.html');
 	$static->{'feeds'} = PAR::read_file('feeds.html');
 	$static->{'linktypes'} = PAR::read_file('linktypes.html');
@@ -15,6 +23,8 @@ sub loadSupportFiles {
 	$static->{'bt.js'} = PAR::read_file('jquery.bt.js');
 	$static->{'logo'} = PAR::read_file('jdlbot_logo.png');
 	$static->{'favicon'} = PAR::read_file('favicon.ico');
+
+	return 1;
 }
 
 sub checkConfigFile {
@@ -22,18 +32,19 @@ sub checkConfigFile {
 	if ( ! -d $configdir ){
 		make_path($configdir);
 	}
-	
+
 	my $configfile = (file($configdir, 'config.sqlite'))->stringify;
 	if(! -f $configfile){
 		my $cfgToCopy = (file($ENV{'PAR_TEMP'}, 'inc', 'config.sqlite'))->stringify;
 		copy($cfgToCopy, $configfile);
 	}
-	
+
 	return $configfile;
 }
 
 sub openBrowser {
-	`start http://127.0.0.1:$config{'port'}/`;
+	`start http://127.0.0.1:$main::config{'port'}/`;
+	return 1;
 }
 
 1;

@@ -1,6 +1,9 @@
 
 package JdlBot::Feed;
 
+use strict;
+use warnings;
+
 use Data::Dumper;
 
 use XML::FeedPP;
@@ -100,6 +103,8 @@ sub scrape {
 	foreach my $filter ( keys %{ $filters } ){
 		findLinks($filters->{$filter}, $dbh, $config);
 	}
+
+	return 0;
 }
 
 sub findLinks {
@@ -179,6 +184,8 @@ sub findLinks {
 		$count++;
 	
 	}
+
+	return 0;
 }
 
 # sendToJd is to remain synchronous for the time being.

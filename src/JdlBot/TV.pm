@@ -1,6 +1,8 @@
 
 package JdlBot::TV;
 
+use strict;
+use warnings;
 
 sub checkTvMatch {
 	my ( $title , $filter , $dbh ) = @_;

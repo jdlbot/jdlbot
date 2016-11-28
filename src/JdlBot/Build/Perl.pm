@@ -1,40 +1,52 @@
 
+package JdlBot::Build::Perl;
+
+use strict;
+use warnings;
+
+require Exporter;
+our @ISA = qw(Exporter);
+our @EXPORT_OK = qw(%templates $static loadSupportFiles checkConfigFile openBrowser);
+
 sub loadSupportFiles {
-	%templates = ();
+	our %templates = ();
 	$templates{'base'} = Text::Template->new(TYPE => 'FILE',  SOURCE => 'base.html');
 	$templates{'config'} = Text::Template->new(TYPE => 'FILE',  SOURCE => 'config.html');
 	$templates{'status'} = Text::Template->new(TYPE => 'FILE',  SOURCE => 'status.html');
-	
-	$static = {};
-	open(FILTERSFILE, '<filters.html');
-	$static->{'filters'} = join("", <FILTERSFILE>);
-	close(FILTERSFILE);
-	
-	open(FEEDSFILE, '<feeds.html');
-	$static->{'feeds'} = join("", <FEEDSFILE>);
-	close(FEEDSFILE);
 
-	open(LINKTYPESFILE, '<linktypes.html');
-	$static->{'linktypes'} = join("", <LINKTYPESFILE>);
-	close(LINKTYPESFILE);
-	
-	open(CSSFILE, '<main.css');
-	$static->{'css'} = join("", <CSSFILE>);
-	close(CSSFILE);
+	our $static = {};
+	my $file;
+	open($file, '<', 'filters.html');
+	$static->{'filters'} = join("", <$file>);
+	close($file);
 
-	open(BTJSFILE, '<jquery.bt.js');
-	$static->{'bt.js'} = join("", <BTJSFILE>);
-	close(BTJSFILE);
-	
-	open(LOGOFILE, '<jdlbot_logo.png');
-	binmode(LOGOFILE);
-	$static->{'logo'} = join("", <LOGOFILE>);
-	close(LOGOFILE);
+	open($file, '<', 'feeds.html');
+	$static->{'feeds'} = join("", <$file>);
+	close($file);
 
-	open(FAVICONFILE, '<favicon.ico');
-	binmode(FAVICONFILE);
-	$static->{'favicon'} = join("", <FAVICONFILE>);
-	close(FAVICONFILE);
+	open($file, '<', 'linktypes.html');
+	$static->{'linktypes'} = join("", <$file>);
+	close($file);
+
+	open($file, '<', 'main.css');
+	$static->{'css'} = join("", <$file>);
+	close($file);
+
+	open($file, '<', 'jquery.bt.js');
+	$static->{'bt.js'} = join("", <$file>);
+	close($file);
+
+	open($file, '<', 'jdlbot_logo.png');
+	binmode($file);
+	$static->{'logo'} = join("", <$file>);
+	close($file);
+
+	open($file, '<', 'favicon.ico');
+	binmode($file);
+	$static->{'favicon'} = join("", <$file>);
+	close($file);
+
+	return 1;
 }
 
 sub checkConfigFile {
@@ -46,7 +58,8 @@ sub checkConfigFile {
 }
 
 sub openBrowser {
-		#Do nothing
+	#Do nothing
+	return 1;
 }
 
 1;
