@@ -5,11 +5,18 @@ use strict;
 use warnings;
 
 use File::Copy;
+use File::Find;
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT = qw(loadTemplates loadStatic checkConfigFile openBrowser);
+our @EXPORT = qw(loadTemplates loadStatic loadAssets checkConfigFile openBrowser);
 
-sub loadSupportFiles {
+sub loadFile {
+ 	my $path = $_[0];
+ 	my $content = PAR::read_file($path);
+ 	return $content;
+}
+
+sub loadTemplates {
 	our %templates = ();
 	$templates{'base'} = Text::Template->new(TYPE => 'STRING',  SOURCE => PAR::read_file('base.html'));
 	$templates{'config'} = Text::Template->new(TYPE => 'STRING',  SOURCE => PAR::read_file('config.html'));
@@ -18,15 +25,39 @@ sub loadSupportFiles {
 	return %templates;
 }
 
+sub loadAssets {
+	my %assets = ();
+	find(sub {
+		my $content = loadFile($_) if -f;
+		my $mime;
+		if ( $_ =~ /.js$/ ) {
+			$mime = 'text/javascript';
+		} elsif ( $_ =~ /.css$/ ) {
+			$mime = 'text/css';
+		} else {
+			$mime = '';
+		}
+		$assets{"/".$File::Find::name} = sub {
+		my ($httpd, $req) = @_;
+
+		$req->respond({ content => [$mime, $content] });
+		}
+	}, 'assets/');
+	
+	
+	return %assets;
+}
+
 sub loadStatic {
 	my $static = {};
-	$static->{'filters'} = PAR::read_file('filters.html');
-	$static->{'feeds'} = PAR::read_file('feeds.html');
-	$static->{'linktypes'} = PAR::read_file('linktypes.html');
-	$static->{'css'} = PAR::read_file('main.css');
-	$static->{'bt.js'} = PAR::read_file('jquery.bt.js');
-	$static->{'logo'} = PAR::read_file('jdlbot_logo.png');
-	$static->{'favicon'} = PAR::read_file('favicon.ico');
+	my @staticFiles = (
+		'filters.html',
+		'feeds.html',
+		'linktypes.html'
+	);
+	foreach my $file (@staticFiles) {
+		$static->{$file} = loadFile($file);
+	}
 
 	return $static;
 }

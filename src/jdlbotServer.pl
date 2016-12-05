@@ -40,7 +40,7 @@ $ua->timeout(5);
 $ua->agent(JdlBot::UA::getAgent());
 
 # Declare globals... I know tisk tisk
-my($dbh, %config, $watchers, %templates, $static);
+my($dbh, %config, $watchers, %templates, $static, %assets);
 
 # Encapsulate configuration code
 {
@@ -110,6 +110,7 @@ my($dbh, %config, $watchers, %templates, $static);
 
 %templates = loadTemplates();
 $static = loadStatic();
+%assets = loadAssets();
 
 sub fetchConfig {
 	my $configArrayRef = $dbh->selectall_arrayref( q( SELECT param, value FROM config ) )
@@ -168,6 +169,27 @@ sub removeWatcher {
 	return 1;
 }
 
+sub getNavigation {
+	my ($url, %siteMap) = @_;
+	my $nav = "";
+	foreach my $path (sort keys %siteMap) {
+		if( $url eq $path ) {
+			$nav .= "<li class='active'><a href='$path'>$siteMap{$path}</a></li>";
+		} else {
+			$nav .= "<li><a href='$path'>$siteMap{$path}</a></li>";
+		}
+	}
+	return $nav;
+}
+
+my %siteMap = (
+	'/' =>'Status',
+	'/config' => 'Configuration',
+	'/feeds' => 'Feeds',
+	'/linktypes' => 'Link Types',
+	'/filters' => 'Filters',
+);
+
 my $httpd = AnyEvent::HTTPD->new (host => '127.0.0.1', port => $config{'port'});
 	print STDERR "Server running on port: $config{'port'}\n" .
 	"Open http://127.0.0.1:$config{'port'}/ in your favorite web browser to continue.\n\n";
@@ -193,8 +215,9 @@ $httpd->reg_cb (
 																'check_update' => $config{'check_update'} eq 'TRUE' ? 'true' : 'false',
 																'status' => $status
 																});
+		my $navHtml = getNavigation($req->url,%siteMap);
 
-		$req->respond ({ content => ['text/html', $templates{'base'}->fill_in(HASH => {'title' => 'Status', 'content' => $statusHtml}) ]});
+		$req->respond ({ content => ['text/html', $templates{'base'}->fill_in(HASH => {'title' => 'Status', 'navigation' => $navHtml, 'content' => $statusHtml}) ]});
 	},
 	'/config' => sub {
 		my ($httpd, $req) = @_;
@@ -207,7 +230,7 @@ $httpd->reg_cb (
 																'check_update' => $config{'check_update'} eq 'TRUE' ? 'checked="checked"' : '',
 																'open_browser' => $config{'open_browser'} eq 'TRUE' ? 'checked="checked"' : ''
 																});
-		$req->respond ({ content => ['text/html', $templates{'base'}->fill_in(HASH => {'title' => 'Configuration', 'content' => $configHtml}) ]});
+		$req->respond ({ content => ['text/html', $templates{'base'}->fill_in(HASH => {'title' => $siteMap{'/config'}, 'navigation' => getNavigation($req->url,%siteMap), 'content' => $configHtml}) ]});
 		} elsif ( $req->method() eq 'POST' ){
 			if( $req->parm('action') eq 'update' ){
 				my $configParams = decode_json(uri_unescape($req->parm('data')));
@@ -220,7 +243,7 @@ $httpd->reg_cb (
 				my $status;
 				if ( ! $qh->errstr ){
 					%config = fetchConfig();
-					$status = 'success';
+					$status = 'Success.';
 				} else {
 					$status = 'Could not update config.  Try reloading jdlbot.';
 				}
@@ -233,7 +256,7 @@ $httpd->reg_cb (
 		my ($httpd, $req) = @_;
 		if( $req->method() eq 'GET' ){
 		
-		$req->respond ({ content => ['text/html', $templates{'base'}->fill_in(HASH => {'title' => 'Feeds', 'content' => $static->{'feeds'}}) ]});
+		$req->respond ({ content => ['text/html', $templates{'base'}->fill_in(HASH => {'title' => $siteMap{'/feeds'}, 'navigation' => getNavigation($req->url,%siteMap), 'content' => $static->{'feeds.html'}}) ]});
 		} elsif ( $req->method() eq 'POST' ){
 			my $return = {'status' => 'failure'};
 			if( $req->parm('action') =~ /add|update|enable/){
@@ -308,7 +331,7 @@ $httpd->reg_cb (
 							unless ( $feedParams->{'enabled'} eq 'FALSE' ){
 								addWatcher($feedParams->{'url'}, $feedParams->{'interval'}, $feedParams->{'follow_links'});
 							}
-							$feedParams->{'status'} = 'success';
+							$feedParams->{'status'} = 'Success.';
 							$return = $feedParams;						
 						} else {
 							$return->{'status'} = "Could not save feed data, possibly a duplicate feed?";
@@ -347,7 +370,7 @@ $httpd->reg_cb (
 					
 				if(!$qh->errstr){
 					removeWatcher($feedParams->{'url'});
-					$feedParams->{'status'} = 'success';
+					$feedParams->{'status'} = 'Success.';
 					$return = $feedParams;						
 				}
 			} elsif ( $req->parm('action') eq 'list' ) {
@@ -361,7 +384,7 @@ $httpd->reg_cb (
 				}
 
 				if ( !$dbh->errstr ){
-					$return->{'status'} = "success";
+					$return->{'status'} = "Success.";
 				}
 			}
 			$return = encode_json($return);
@@ -372,7 +395,7 @@ $httpd->reg_cb (
 		my ($httpd, $req) = @_;
 		if( $req->method() eq 'GET' ){
 
-		$req->respond ({ content => ['text/html', $templates{'base'}->fill_in(HASH => {'title' => 'Link Types', 'content' => $static->{'linktypes'}}) ]});
+		$req->respond ({ content => ['text/html', $templates{'base'}->fill_in(HASH => {'title' => $siteMap{'/linktypes'}, 'navigation' => getNavigation($req->url,%siteMap), 'content' => $static->{'linktypes.html'}}) ]});
 
 		} elsif ( $req->method() eq 'POST' ){
 			my $return = {'status' => 'failure'};
@@ -419,7 +442,7 @@ $httpd->reg_cb (
 				}
 
 				if(!$dbh->errstr){
-					$return->{'status'} = 'success';
+					$return->{'status'} = 'Success.';
 				}
 				
 	
@@ -433,7 +456,7 @@ $httpd->reg_cb (
 		my ($httpd, $req) = @_;
 		if( $req->method() eq 'GET' ){
 
-		$req->respond ({ content => ['text/html', $templates{'base'}->fill_in(HASH => {'title' => 'Filters', 'content' => $static->{'filters'}}) ]});
+		$req->respond ({ content => ['text/html', $templates{'base'}->fill_in(HASH => {'title' => $siteMap{'/filters'}, 'navigation' => getNavigation($req->url,%siteMap), 'content' => $static->{'filters.html'}}) ]});
 
 		} elsif ( $req->method() eq 'POST' ){
 			my $return = {'status' => 'failure'};
@@ -478,7 +501,7 @@ $httpd->reg_cb (
 				}
 
 				if(!$dbh->errstr){
-					$return->{'status'} = 'success';
+					$return->{'status'} = 'Success.';
 				}
 				
 
@@ -486,28 +509,8 @@ $httpd->reg_cb (
 			$return = encode_json($return);
 			$req->respond ({ content => ['application/json',  $return ]});
 		}
-	# TODO: Replace these static file requests with a function to make adding new static files easier
 	},
-	'/main.css' => sub {
-		my ($httpd, $req) = @_;
-
-		$req->respond({ content => ['text/css', $static->{'css'}] });
-	},
-	'/bt.js' => sub {
-		my ($httpd, $req) = @_;
-
-		$req->respond({ content => ['text/javascript', $static->{'bt.js'}] });
-	},
-	'/logo.png' => sub {
-		my ($httpd, $req) = @_;
-
-		$req->respond({ content => ['', $static->{'logo'}] });
-	},
-	'/favicon.ico' => sub {
-		my ($httpd, $req) = @_;
-
-		$req->respond({ content => ['', $static->{'favicon'}] });
-	},
+	%assets
 );
 
 $httpd->run; # making a AnyEvent condition variable would also work
