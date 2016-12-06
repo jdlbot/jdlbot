@@ -156,20 +156,24 @@ $(document).ready(function(){
 </script>
 <div class="row">
 	<div class="col-sm-8">
-		<table id="linktype-list" class="table table-striped">
-			<thead>
-				<tr>
-					<th style="width: 25px;">Enable</th>
-					<th>Host/Url fragment</th>
-					<th style="width: 75px;">Priority</th>
-					<th style="width: 75px;">Delete</th>
-				</tr>
-			</thead>
-			<tbody>
-			</tbody>
-		</table>
-		<button type="button" id="update-linktypes" class="btn btn-default"
-			data-toggle="popover">Update Link Type list</button>
+		<div class="panel panel-default">
+			<div class="panel-body">
+				<table id="linktype-list" class="table table-striped">
+					<thead>
+						<tr>
+							<th style="width: 25px;">Enable</th>
+							<th>Host/Url fragment</th>
+							<th style="width: 75px;">Priority</th>
+							<th style="width: 75px;">Delete</th>
+						</tr>
+					</thead>
+					<tbody>
+					</tbody>
+				</table>
+				<button type="button" id="update-linktypes" class="btn btn-info"
+					data-toggle="popover">Update Link Type list</button>
+			</div>
+		</div>
 	</div>
 	<div class="col-sm-4">
 		<div class="panel panel-default">
@@ -187,7 +191,7 @@ $(document).ready(function(){
 						name="priority" value="10"
 						title="Only the first matched link will be downloaded. Link types with lower priority values will take precedence.">
 				</div>
-				<button type="button" id="add" class="btn btn-default" data-toggle="popover">Add
+				<button type="button" id="add" class="btn btn-primary" data-toggle="popover">Add
 					link type</button>
 			</div>
 		</div>
@@ -200,7 +204,7 @@ $(document).ready(function(){
 			class="form-control" disabled="disabled"></td>
 		<td><input name="priority" type="number" class="form-control"></td>
 		<td>
-			<button type="button" class="btn btn-default delete">Delete</button>
+			<button type="button" class="btn btn-danger delete">Delete</button>
 		</td>
 	</tr>
 </table>

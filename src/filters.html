@@ -3,32 +3,32 @@
 		var $id = $('#new-filter-form');
 		var filterVars = getFilterValues($id);
 		$.post('/filters', 'action=add&data=' + escape(JSON.stringify(filterVars)))
-				.done(function(data) {
-					if (data.status === "Success.") {
-						insertFilter(data.filter);
-						notify($('#add'), '', data.status, 'bg-success', 2000);
-					} else {
-						notify($('#add'), '', data.status, 'bg-danger', 4000);
-					}
-				}).fail(function(data) {
-					notify($('#add'), '', 'Connection Error', 'bg-danger', 4000);
-				});
+			.done(function(data) {
+				if (data.status === "Success.") {
+					insertFilter(data.filter);
+					notify($('#add'), '', data.status, 'bg-success', 2000);
+				} else {
+					notify($('#add'), '', data.status, 'bg-danger', 4000);
+				}
+			}).fail(function(data) {
+				notify($('#add'), '', 'Connection Error', 'bg-danger', 4000);
+			});
 	}
 
 	var updateFilter = function($id) {
 		var filterVars = getFilterValues($id);
 		$.post('/filters', 'action=update&data=' + escape(JSON.stringify(filterVars)),
-				function(data) {
-					if (data.status === 'Success.') {
-						fillInFilter($id, data.filter);
-						toggleShow($id);
-						notify($id.find('button.edit-button'), '', data.status, 'bg-success',
-								2000);
-					} else {
-						notify($id.find('button.edit-button'), '', data.status, 'bg-danger',
-								4000);
-					}
-				}, 'json');
+			function(data) {
+				if (data.status === 'Success.') {
+					fillInFilter($id, data.filter);
+					toggleShow($id);
+					notify($id.find('button.edit-button'), '', data.status, 'bg-success',
+							2000);
+				} else {
+					notify($id.find('button.edit-button'), '', data.status, 'bg-danger',
+							4000);
+				}
+			}, 'json');
 	}
 
 	var enableFilter = function($id) {
@@ -52,22 +52,19 @@
 		var filterVars = {
 			'title' : $id.find('input[name=old_title]').val()
 		};
-		$
-				.post(
-						'/filters',
-						'action=delete&data=' + escape(JSON.stringify(filterVars)),
-						function(data) {
-							if (data.status === 'Success.') {
-								var alert = "<tr id=\"dismiss\"><td colspan=\"3\"><div class=\"alert alert-success\" role=\"alert\">Deleted.</div></td></tr>";
-								$id.replaceWith(alert);
-								setTimeout(function() {
-									$('#dismiss').remove()
-								}, 2000);
-							} else {
-								notify($id.find('button.edit-button'), '', data.status, 'bg-danger',
-										4000);
-							}
-						}, 'json');
+		$.post('/filters','action=delete&data=' + escape(JSON.stringify(filterVars)),
+			function(data) {
+				if (data.status === 'Success.') {
+					var alert = "<tr id=\"dismiss\"><td colspan=\"3\"><div class=\"alert alert-success\" role=\"alert\">Deleted.</div></td></tr>";
+					$id.replaceWith(alert);
+					setTimeout(function() {
+						$('#dismiss').remove()
+					}, 2000);
+				} else {
+					notify($id.find('button.edit-button'), '', data.status, 'bg-danger',
+							4000);
+				}
+			}, 'json');
 	}
 
 	var listFilters = function() {
@@ -210,22 +207,25 @@
 				$('[data-toggle="tooltip"]').tooltip();
 
 				// Add event handlers for everything.  Most are delegated at the bubble-up stage.
-				$('#filters').on('change',
+				$('#filters').on(
+						'change',
 						':checkbox[name=stop_found]',
 						function() {
 							if (this.checked) {
-								$(this).parents('div.panel-body')
-										.find(':checkbox[name=tv]:checked').each(function() {
+								$(this).parents('div.edit').find(':checkbox[name=tv]:checked')
+										.each(function() {
 											$(this).prop('checked', false);
 											$(this).change();
 										});
 							}
 						});
-				$('#filters').on('change',':checkbox[name=tv]',
+				$('#filters').on(
+						'change',
+						':checkbox[name=tv]',
 						function() {
-							toggle($(this).parents('div.panel-body').find('div.tv_last'));
+							toggle($(this).parents('div.edit').find('div.tv_last'));
 							if (this.checked) {
-								$(this).parents('div.panel-body').find(':checkbox[name=stop_found]')
+								$(this).parents('div.edit').find(':checkbox[name=stop_found]')
 										.prop('checked', false);
 							}
 						});
@@ -254,20 +254,24 @@
 </script>
 <div class="row" id="filters">
 	<div class="col-sm-7">
-		<table id="filter-list" class="table table-striped">
-			<thead>
-				<tr>
-					<th style="width: 25px;">Enable</th>
-					<th>Filter</th>
-					<th style="width: 75px;">Edit</th>
-				</tr>
-			</thead>
-			<tbody>
-			</tbody>
-		</table>
+		<div class="panel panel-default">
+			<div class="panel-body">
+				<table id="filter-list" class="table table-striped">
+					<thead>
+						<tr>
+							<th style="width: 25px;">Enable</th>
+							<th>Filter</th>
+							<th style="width: 75px;">Edit</th>
+						</tr>
+					</thead>
+					<tbody>
+					</tbody>
+				</table>
+			</div>
+		</div>
 	</div>
 	<div class="col-sm-5">
-		<div class="panel panel-default">
+		<div class="panel panel-default edit">
 			<div class="panel-heading">Add a new filter:</div>
 			<div id="new-filter-form" class="panel-body">
 				<div class="form-group">
@@ -329,7 +333,7 @@
 							title="All matching links will be added to the linkgrabber.  If this is checked, they will also be downloaded.">
 							Auto start in jDownloader? </label>
 					</div>
-					<button type="button" id="add" class="btn btn-default" data-toggle="popover">Add
+					<button type="button" id="add" class="btn btn-primary" data-toggle="popover">Add
 						filter</button>
 				</div>
 			</div>
@@ -389,14 +393,14 @@
 							jDownloader? </label>
 					</div>
 					<div class="btn-group" role="group" aria-label="save cancel delete button group">
-						<button type="button" class="btn btn-default update">Update</button>
-						<button type="button" class="btn btn-default delete">Delete</button>
-						<button type="button" class="btn btn-default cancel">Cancel</button>
+						<button type="button" class="btn btn-primary update">Update</button>
+						<button type="button" class="btn btn-danger delete">Delete</button>
+						<button type="button" class="btn btn-info cancel">Cancel</button>
 					</div>
 				</div>
 			</div></td>
 		<td>
-			<button type="button" class="btn btn-default edit-button" data-placement="top">Edit</button>
+			<button type="button" class="btn btn-info edit-button" data-placement="top">Edit</button>
 		</td>
 	</tr>
 </table>

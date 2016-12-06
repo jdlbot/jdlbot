@@ -3,36 +3,34 @@
 		var $id = $('#new-feed-form');
 		var feedVars = getFeedValues($id);
 
-		$.post('/feeds', 'action=add&data=' + escape(JSON.stringify(feedVars)))
-				.done(function(data) {
+		$.post('/feeds', 'action=add&data=' + escape(JSON.stringify(feedVars))).done(
+				function(data) {
 					if (data.status === "Success.") {
 						insertFeed(data);
 						notify($('#add'), '', data.status, 'bg-success', 2000);
 					} else {
 						notify($('#add'), '', data.status, 'bg-danger', 4000);
 					}
-				}).fail(
-						function(data) {
-							notify($('#add'), '', 'Connection Error',
-									'bg-danger', 4000);
-						});
+				}).fail(function(data) {
+			notify($('#add'), '', 'Connection Error', 'bg-danger', 4000);
+		});
 	}
 
 	var updateFeed = function($id) {
 		var feedVars = getFeedValues($id);
 
-		$.post('/feeds', 'action=update&data='
-				+ escape(JSON.stringify(feedVars)), function(data) {
-			if (data.status === 'Success.') {
-				fillInFeed($id, data);
-				toggleShow($id);
-				notify($id.find('button.edit-button'), '', data.status,
-						'bg-success', 2000);
-			} else {
-				notify($id.find('button.edit-button'), '', data.status,
-						'bg-danger', 4000);
-			}
-		}, 'json');
+		$.post('/feeds', 'action=update&data=' + escape(JSON.stringify(feedVars)),
+				function(data) {
+					if (data.status === 'Success.') {
+						fillInFeed($id, data);
+						toggleShow($id);
+						notify($id.find('button.edit-button'), '', data.status, 'bg-success',
+								2000);
+					} else {
+						notify($id.find('button.edit-button'), '', data.status, 'bg-danger',
+								4000);
+					}
+				}, 'json');
 	}
 
 	var enableFeed = function($id) {
@@ -41,59 +39,66 @@
 			'old_url' : $id.find('input[name=old_url]').val(),
 			'enabled' : testCheckBox($id.find('input[name=enabled]'))
 		};
-		$.post('/feeds', 'action=enable&data='
-				+ escape(JSON.stringify(feedVars)), function(data) {
-			if (data.status === 'Success.') {
-				notify($id.find('button.edit-button'), '', data.status,
-						'bg-success', 2000);
-			} else {
-				notify($id.find('button.edit-button'), '', data.status,
-						'bg-danger', 4000);
-			}
-		}, 'json');
+		$.post('/feeds', 'action=enable&data=' + escape(JSON.stringify(feedVars)),
+				function(data) {
+					if (data.status === 'Success.') {
+						notify($id.find('button.edit-button'), '', data.status, 'bg-success',
+								2000);
+					} else {
+						notify($id.find('button.edit-button'), '', data.status, 'bg-danger',
+								4000);
+					}
+				}, 'json');
 	}
 
 	var deleteFeed = function($id) {
 		var feedVars = {
 			'url' : $id.find('input[name=url]').val()
 		};
-		$.post('/feeds', 'action=delete&data=' + escape(JSON.stringify(feedVars)),
-			function(data) {
-				if (data.status === 'Success.') {
-					var alert = "<tr id=\"dismiss\"><td colspan=\"3\"><div class=\"alert alert-success\" role=\"alert\">Deleted.</div></td></tr>";
-					$id.replaceWith(alert);
-					setTimeout(function() {
-						$('#dismiss').remove()
-					}, 2000);
-				} else {
-					notify($id.find('button.edit-button'), '',
-							data.status, 'bg-danger', 4000);
-				}
-			}, 'json');
+		$
+				.post(
+						'/feeds',
+						'action=delete&data=' + escape(JSON.stringify(feedVars)),
+						function(data) {
+							if (data.status === 'Success.') {
+								var alert = "<tr id=\"dismiss\"><td colspan=\"3\"><div class=\"alert alert-success\" role=\"alert\">Deleted.</div></td></tr>";
+								$id.replaceWith(alert);
+								setTimeout(function() {
+									$('#dismiss').remove()
+								}, 2000);
+							} else {
+								notify($id.find('button.edit-button'), '', data.status, 'bg-danger',
+										4000);
+							}
+						}, 'json');
 	}
 
 	var listFeeds = function(callback) {
-		$.post('/feeds', 'action=list', function(data) {
-				if (data.status === 'Success.') {
-					for (var i = 0; i < feedCount; i++) {
-						$('#f' + i).remove();
-					}
-					feedCount = 0;
+		$
+				.post(
+						'/feeds',
+						'action=list',
+						function(data) {
+							if (data.status === 'Success.') {
+								for (var i = 0; i < feedCount; i++) {
+									$('#f' + i).remove();
+								}
+								feedCount = 0;
 
-					for ( var i in data.feeds) {
-						insertFeed(data.feeds[i]);
-					}
+								for ( var i in data.feeds) {
+									insertFeed(data.feeds[i]);
+								}
 
-					if (callback) {
-						callback();
-					}
+								if (callback) {
+									callback();
+								}
 
-				} else {
-					var alert = "<tr><td colspan=\"3\"><div class=\"alert alert-danger alert-dismissible\" role=\"alert\"><button type=\"button\" class=\"close\" data-dismiss=\"alert\" aria-label=\"Close\"><span aria-hidden=\"true\">&times;</span></button>"
-							+ data.status + "</div></td></tr>";
-					$('#feed-list tbody').append(alert);
-				}
-			}, 'json');
+							} else {
+								var alert = "<tr><td colspan=\"3\"><div class=\"alert alert-danger alert-dismissible\" role=\"alert\"><button type=\"button\" class=\"close\" data-dismiss=\"alert\" aria-label=\"Close\"><span aria-hidden=\"true\">&times;</span></button>"
+										+ data.status + "</div></td></tr>";
+								$('#feed-list tbody').append(alert);
+							}
+						}, 'json');
 	}
 
 	var getFeedValues = function($id) {
@@ -151,71 +156,71 @@
 	}
 
 	var feedCount = 0;
-	$(document).ready(
-			function() {
-				$('[data-toggle="tooltip"]').tooltip();
+	$(document).ready(function() {
+		$('[data-toggle="tooltip"]').tooltip();
 
-				$('#add').click(function() {
-					addFeed($(this));
-				});
-				$('#feed-list').on('change', ':checkbox[name=enabled]', 
-						function() {
-							enableFeed($(this).data('item-id'));
-						});
-				$('#feed-list').on('click','button.edit-button', 
-						function() {
-							toggleShow($(this).data('item-id'));
-						});
-				$('#feed-list').on('click', 'button.update', function() {
-					updateFeed($(this).data('item-id'));
-				});
-				$('#feed-list').on('click', 'button.delete', function() {
-					deleteFeed($(this).data('item-id'));
-				});
-				$('#feed-list').on('click', 'button.cancel', function() {
-					toggleShow($(this).data('item-id'));
-				});
+		$('#add').click(function() {
+			addFeed($(this));
+		});
+		$('#feed-list').on('change', ':checkbox[name=enabled]', function() {
+			enableFeed($(this).data('item-id'));
+		});
+		$('#feed-list').on('click', 'button.edit-button', function() {
+			toggleShow($(this).data('item-id'));
+		});
+		$('#feed-list').on('click', 'button.update', function() {
+			updateFeed($(this).data('item-id'));
+		});
+		$('#feed-list').on('click', 'button.delete', function() {
+			deleteFeed($(this).data('item-id'));
+		});
+		$('#feed-list').on('click', 'button.cancel', function() {
+			toggleShow($(this).data('item-id'));
+		});
 
-				listFeeds();
-			});
+		listFeeds();
+	});
 </script>
 <div class="row">
 	<div class="col-sm-8">
-		<table id="feed-list" class="table table-striped">
-			<thead>
-				<tr>
-					<th style="width: 25px;">Enable</th>
-					<th>Feed</th>
-					<th style="width: 75px;">Edit</th>
-				</tr>
-			</thead>
-			<tbody>
-			</tbody>
-		</table>
+		<div class="panel panel-default">
+			<div class="panel-body">
+				<table id="feed-list" class="table table-striped">
+					<thead>
+						<tr>
+							<th style="width: 25px;">Enable</th>
+							<th>Feed</th>
+							<th style="width: 75px;">Edit</th>
+						</tr>
+					</thead>
+					<tbody>
+					</tbody>
+				</table>
+			</div>
+		</div>
 	</div>
 	<div class="col-sm-4">
 		<div class="panel panel-default">
 			<div class="panel-heading">Add a new feed:</div>
 			<div id="new-feed-form" class="panel-body">
 				<div class="form-group">
-					<label for="url">Url:</label> <input type="text" name="url"
-						class="form-control" data-toggle="tooltip" data-placement="right"
-						title="The url must be unique.">
+					<label for="url">Url:</label> <input type="text" name="url" class="form-control"
+						data-toggle="tooltip" data-placement="left" title="The url must be unique.">
 				</div>
 				<div class="form-group">
 					<label for="interval">Interval (min):</label> <input type="number"
-						class="form-control" data-toggle="tooltip" data-placement="right"
+						class="form-control" data-toggle="tooltip" data-placement="left"
 						name="interval" value="60"
 						title="The interval in minutes between RSS feed checks.  Something 60 or over is usually appropriate.">
 				</div>
 				<div class="checkbox">
-					<label><input type="checkbox" name="follow_links"
-						data-toggle="tooltip" data-placement="right"
+					<label><input type="checkbox" name="follow_links" data-toggle="tooltip"
+						data-placement="left"
 						title="If checked, the link in the RSS item will be followed and the page scraped for links to add to JD">
 						Follow Links. </label>
 				</div>
-				<button type="button" id="add" class="btn btn-default"
-					data-toggle="popover">Add feed</button>
+				<button type="button" id="add" class="btn btn-primary" data-toggle="popover">Add
+					feed</button>
 			</div>
 		</div>
 	</div>
@@ -229,28 +234,26 @@
 				<div class="panel-body">
 					<div class="form-group">
 						<label for="url">Url:</label> <input type="text" name="url"
-							class="form-control" value=""> <input type="hidden"
-							name="old_url" value="">
+							class="form-control" value=""> <input type="hidden" name="old_url"
+							value="">
 					</div>
 					<div class="form-group">
 						<label for="interval">Interval (min):</label> <input type="number"
 							name="interval" class="form-control" value="">
 					</div>
 					<div class="checkbox">
-						<label><input type="checkbox" name="follow_links">
-							Follow Links. </label>
+						<label><input type="checkbox" name="follow_links"> Follow
+							Links. </label>
 					</div>
-					<div class="btn-group" role="group"
-						aria-label="save cancel delete button group">
-						<button type="button" class="btn btn-default update">Update</button>
-						<button type="button" class="btn btn-default delete">Delete</button>
-						<button type="button" class="btn btn-default cancel">Cancel</button>
+					<div class="btn-group" role="group" aria-label="save cancel delete button group">
+						<button type="button" class="btn btn-primary update">Update</button>
+						<button type="button" class="btn btn-danger delete">Delete</button>
+						<button type="button" class="btn btn-info cancel">Cancel</button>
 					</div>
 				</div>
 			</div></td>
 		<td>
-			<button type="button" class="btn btn-default edit-button"
-				data-placement="top">Edit</button>
+			<button type="button" class="btn btn-info edit-button" data-placement="top">Edit</button>
 		</td>
 	</tr>
 </table>
