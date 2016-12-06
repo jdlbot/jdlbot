@@ -1,229 +1,256 @@
 <script type="text/javascript">
-var addFeed = function(){
-	var $id = $('#new_feed_form');
-	var feedVars = getFeedValues($id);
-	
-	$.post('/feeds',
-		   'action=add&data=' + escape(JSON.stringify(feedVars)),
-		   function(data){
-			if(data.status === 'success'){
-				insertFeed(data);
-				notify($id.find('span.notify'), data.status, 'green');
-			} else {
-				notify($id.find('span.notify'), data.status, 'red');
-			}
-		   },
-		   'json');
-}
+	var addFeed = function($caller) {
+		var $id = $('#new-feed-form');
+		var feedVars = getFeedValues($id);
 
-var updateFeed = function($id){
-	var feedVars = getFeedValues($id);
-	
-	$.post('/feeds',
-		   'action=update&data=' + escape(JSON.stringify(feedVars)),
-		   function(data){
-			if(data.status === 'success'){
-				$id.find('span.display span').html('<a href="http://' + data.url + '">' + data.url + ' -- Interval: ' + data.interval + '</a>');
+		$.post('/feeds', 'action=add&data=' + escape(JSON.stringify(feedVars)))
+				.done(function(data) {
+					if (data.status === "Success.") {
+						insertFeed(data);
+						notify($('#add'), '', data.status, 'bg-success', 2000);
+					} else {
+						notify($('#add'), '', data.status, 'bg-danger', 4000);
+					}
+				}).fail(
+						function(data) {
+							notify($('#add'), '', 'Connection Error',
+									'bg-danger', 4000);
+						});
+	}
+
+	var updateFeed = function($id) {
+		var feedVars = getFeedValues($id);
+
+		$.post('/feeds', 'action=update&data='
+				+ escape(JSON.stringify(feedVars)), function(data) {
+			if (data.status === 'Success.') {
 				fillInFeed($id, data);
 				toggleShow($id);
-				notify($id.find('span.display'), data.status, 'green');
+				notify($id.find('button.edit-button'), '', data.status,
+						'bg-success', 2000);
 			} else {
-				notify($id.find('span.notify'), data.status, 'red');
+				notify($id.find('button.edit-button'), '', data.status,
+						'bg-danger', 4000);
 			}
-		   },
-		   'json');
-}
-
-var enableFeed = function($id){
-	var feedVars = {
-					  'url' : $id.find('input[name=old_url]').val(),
-					  'old_url' : $id.find('input[name=old_url]').val(),
-					  'enabled' : testCheckBox($id.find('input[name=enabled]'))
-					  };
-	$.post('/feeds',
-		   'action=enable&data=' + escape(JSON.stringify(feedVars)),
-		   function(data){
-			if(data.status === 'success'){
-				// Do nothing
-			} else {
-				notify($id.find('span.display'), data.status, 'red');
-			}
-		   },
-		   'json');
-}
-
-var deleteFeed = function($id){
-	var feedVars = {
-					  'url' : $id.find('input[name=url]').val()
-					  };
-	$.post('/feeds',
-		   'action=delete&data=' + escape(JSON.stringify(feedVars)),
-		   function(data){
-			if(data.status === 'success'){
-				//notify($('#new_feed_form').find('span.notify'), data.status, 'green');
-				$id.remove();
-			} else {
-				notify($id.find('span.notify'), data.status, 'red');
-			}
-		   },
-		   'json');
-}
-
-var listFeeds = function(callback){
-	$.post('/feeds',
-	   'action=list',
-	   function(data){
-		if(data.status === 'success'){
-			for ( var i = 0; i < feedCount; i++ ){
-				$('#f' + i).remove();
-			}
-			feedCount = 0;
-			
-			for ( var i in data.feeds ){
-				insertFeed(data.feeds[i]);
-			}
-			
-			//var feed = '<li><input type="checkbox" value="' + data.feeds[i].url + '" /> ' + data.feeds[i].url + '</li>';
-			//$('ul.feed_list').append(feed);
-			//$('#filter_template ul.feed_list').append(feed);
-			
-			if ( callback ){
-				callback();
-			}
-
-		} else {
-			notify($('#new_feed_form').find('span.notify'), data.status, 'red');
-		}
-	   },
-	   'json');
-}
-
-var testCheckBox = function(s){
-	if ( $(s).is(':checked') ){
-		return 'TRUE';
-	} else {
-		return 'FALSE';
-	}
-}
-
-var toggleShow = function($id){
-	if ( $id.find('div.edit').is(':hidden') ){
-		$id.find('div.edit').show();
-	} else {
-		$id.find('div.edit').hide();
+		}, 'json');
 	}
 
-	if ( $id.find('span.display').is(':hidden') ){
-		$id.find('span.display').show();
-	} else {
-		$id.find('span.display').hide();
+	var enableFeed = function($id) {
+		var feedVars = {
+			'url' : $id.find('input[name=old_url]').val(),
+			'old_url' : $id.find('input[name=old_url]').val(),
+			'enabled' : testCheckBox($id.find('input[name=enabled]'))
+		};
+		$.post('/feeds', 'action=enable&data='
+				+ escape(JSON.stringify(feedVars)), function(data) {
+			if (data.status === 'Success.') {
+				notify($id.find('button.edit-button'), '', data.status,
+						'bg-success', 2000);
+			} else {
+				notify($id.find('button.edit-button'), '', data.status,
+						'bg-danger', 4000);
+			}
+		}, 'json');
 	}
-}
 
-var notify = function($id, message, color){
-	
-	$id.data('bt-content-orig', '');
-	//$id.attr("title", message);
-	$id.bt(message, {
-		trigger: 'none',
-		fill: color,
-		cssStyles: {color: '#FFF'},
-		});
-	$id.btOn();
-}
+	var deleteFeed = function($id) {
+		var feedVars = {
+			'url' : $id.find('input[name=url]').val()
+		};
+		$.post('/feeds', 'action=delete&data=' + escape(JSON.stringify(feedVars)),
+			function(data) {
+				if (data.status === 'Success.') {
+					var alert = "<tr id=\"dismiss\"><td colspan=\"3\"><div class=\"alert alert-success\" role=\"alert\">Deleted.</div></td></tr>";
+					$id.replaceWith(alert);
+					setTimeout(function() {
+						$('#dismiss').remove()
+					}, 2000);
+				} else {
+					notify($id.find('button.edit-button'), '',
+							data.status, 'bg-danger', 4000);
+				}
+			}, 'json');
+	}
 
-var getFeedValues = function($id){
-	var feedVars = {};
-	
-	$id.find('input').not(':button').each(function(){
-			if ( $(this).is(':checkbox') ){
+	var listFeeds = function(callback) {
+		$.post('/feeds', 'action=list', function(data) {
+				if (data.status === 'Success.') {
+					for (var i = 0; i < feedCount; i++) {
+						$('#f' + i).remove();
+					}
+					feedCount = 0;
+
+					for ( var i in data.feeds) {
+						insertFeed(data.feeds[i]);
+					}
+
+					if (callback) {
+						callback();
+					}
+
+				} else {
+					var alert = "<tr><td colspan=\"3\"><div class=\"alert alert-danger alert-dismissible\" role=\"alert\"><button type=\"button\" class=\"close\" data-dismiss=\"alert\" aria-label=\"Close\"><span aria-hidden=\"true\">&times;</span></button>"
+							+ data.status + "</div></td></tr>";
+					$('#feed-list tbody').append(alert);
+				}
+			}, 'json');
+	}
+
+	var getFeedValues = function($id) {
+		var feedVars = {};
+
+		$id.find('input').not(':button').each(function() {
+			if ($(this).is(':checkbox')) {
 				feedVars[this.name] = testCheckBox(this);
 			} else {
 				feedVars[this.name] = $(this).val()
 			}
 		});
-	
-	return feedVars;
-}
 
-var insertFeed = function(data){
-	var id = 'f' + feedCount;
-
-	var newFeed = document.getElementById('feed_template').cloneNode(true);
-	newFeed.id = id;
-	newFeed.style.display = 'none';
-
-	$('#new_feed_form').before(newFeed);
-	feedCount++;
-	
-	$id = $('#' + id);
-	fillInFeed($id, data);
-
-	$id.slideDown(400)
-	
-	return id;
-}
-
-var fillInFeed = function($id, data){
-	$id.find('span.display span').html('<a href="http://' + data.url + '">' + data.url + ' -- Interval: ' + data.interval + '</a>');
-	for (var i in data){
-		if (data[i] === 'TRUE' || data[i] === 'FALSE'){
-			if (data[i] === 'TRUE'){ $id.find('input[name=' + i + ']').attr('checked', true); }
-		} else {
-			$id.find('input[name=' + i + ']').val(data[i]);
-		}
+		return feedVars;
 	}
-	$id.find('input[name=old_url]').val(data.url);
-	$id.find('input').each(function(){
-		$(this).data('pli', $id);
-	});
-}
 
-var feedCount = 0;
-$(document).ready(function(){
-	$('#new_feed_form input').bt();
-	
-	$('#new_feed_form').find(':button[value=Add feed]').bind('click', function(){
-			addFeed();
-		});
-	$('#feeds').delegate(':checkbox[name=enabled]', 'change', function(){
-			enableFeed($(this).data('pli'));
-		});
-	$('#feeds').delegate(':button[value=Edit]', 'click', function(){
-			toggleShow($(this).data('pli'));
-		});
-	$('#feeds').delegate(':button[value=Update]', 'click', function(){
-			updateFeed($(this).data('pli'));
-		});
-	$('#feeds').delegate(':button[value=Delete]', 'click', function(){
-			deleteFeed($(this).data('pli'));
-		});
-	$('#feeds').delegate(':button[value=Cancel]', 'click', function(){
-			toggleShow($(this).data('pli'));
-		});
-	
-	listFeeds();
-});
+	var insertFeed = function(data) {
+		var id = 'f' + feedCount;
 
+		var newFeed = document.getElementById('feed-template').cloneNode(true);
+		newFeed.id = id;
+		newFeed.style.display = 'none';
+
+		$('#feed-list tbody').append(newFeed);
+		feedCount++;
+
+		$id = $('#' + id);
+		fillInFeed($id, data);
+
+		$id.slideDown(400)
+
+		return id;
+	}
+
+	var fillInFeed = function($id, data) {
+		$id.find('td.feed-item span').html(
+				'<a href="http://' + data.url + '" target="_blank">' + data.url
+						+ ' -- Interval: ' + data.interval + '</a>');
+		for ( var field in data) {
+			if (data[field] === 'TRUE' || data[field] === 'FALSE') {
+				if (data[field] === 'TRUE') {
+					$id.find('input[name=' + field + ']').prop('checked', true);
+				}
+			} else {
+				$id.find('input[name=' + field + ']').val(data[field]);
+			}
+		}
+		$id.find('input[name=old_url]').val(data.url);
+		$id.find('button').each(function() {
+			$(this).data('item-id', $id);
+		});
+		$id.find('input').each(function() {
+			$(this).data('item-id', $id);
+		});
+	}
+
+	var feedCount = 0;
+	$(document).ready(
+			function() {
+				$('[data-toggle="tooltip"]').tooltip();
+
+				$('#add').click(function() {
+					addFeed($(this));
+				});
+				$('#feed-list').on('change', ':checkbox[name=enabled]', 
+						function() {
+							enableFeed($(this).data('item-id'));
+						});
+				$('#feed-list').on('click','button.edit-button', 
+						function() {
+							toggleShow($(this).data('item-id'));
+						});
+				$('#feed-list').on('click', 'button.update', function() {
+					updateFeed($(this).data('item-id'));
+				});
+				$('#feed-list').on('click', 'button.delete', function() {
+					deleteFeed($(this).data('item-id'));
+				});
+				$('#feed-list').on('click', 'button.cancel', function() {
+					toggleShow($(this).data('item-id'));
+				});
+
+				listFeeds();
+			});
 </script>
-<ul id="feeds">
-	<li id="new_feed_form">Add a new feed:
-		<p>Url : <input type="text" name="url" title="The url must be unique." /></p>
-		<p>Interval : <input type="number" name="interval" value="60" title="The interval in minutes between RSS feed checks.  Something 60 or over is usually appropriate." /></p>
-		<p>Follow Links : <input type="checkbox" name="follow_links" title="If checked, the link in the RSS item will be followed and the page scraped for links to add to JD" /></p>
-		<span class="notify"><input type="button" value="Add feed" /></span>
-	</li>
-	<li id="feed_template" style="display: none;"><span class="display"><input type="checkbox" name="enabled" />
-		<span></span>
-	<input type="button" value="Edit" /></span>
-	<div class="edit"  style="display: none;">
-		<p>Url : <input type="text" name="url" value=""/><input type="hidden" name="old_url" value="" /></p>
-		<p>Interval : <input type="number" name="interval" value="" /></p> 
-		<p>Follow Links : <input type="checkbox" name="follow_links" /></p>
-		<span class="notify"><input type="button" value="Update" />
-			<input type="button" value="Delete" />
-			<input type="button" value="Cancel" /></span>
+<div class="row">
+	<div class="col-sm-8">
+		<table id="feed-list" class="table table-striped">
+			<thead>
+				<tr>
+					<th style="width: 25px;">Enable</th>
+					<th>Feed</th>
+					<th style="width: 75px;">Edit</th>
+				</tr>
+			</thead>
+			<tbody>
+			</tbody>
+		</table>
 	</div>
-	</li>
-</ul>
-
+	<div class="col-sm-4">
+		<div class="panel panel-default">
+			<div class="panel-heading">Add a new feed:</div>
+			<div id="new-feed-form" class="panel-body">
+				<div class="form-group">
+					<label for="url">Url:</label> <input type="text" name="url"
+						class="form-control" data-toggle="tooltip" data-placement="right"
+						title="The url must be unique.">
+				</div>
+				<div class="form-group">
+					<label for="interval">Interval (min):</label> <input type="number"
+						class="form-control" data-toggle="tooltip" data-placement="right"
+						name="interval" value="60"
+						title="The interval in minutes between RSS feed checks.  Something 60 or over is usually appropriate.">
+				</div>
+				<div class="checkbox">
+					<label><input type="checkbox" name="follow_links"
+						data-toggle="tooltip" data-placement="right"
+						title="If checked, the link in the RSS item will be followed and the page scraped for links to add to JD">
+						Follow Links. </label>
+				</div>
+				<button type="button" id="add" class="btn btn-default"
+					data-toggle="popover">Add feed</button>
+			</div>
+		</div>
+	</div>
+</div>
+<table style="display: none;">
+	<tr id="feed-template" style="display: none;">
+		<td><input type="checkbox" name="enabled"></td>
+		<td class="feed-item"><span></span>
+			<div class="panel panel-default edit" style="display: none;">
+				<div class="panel-heading">Edit feed:</div>
+				<div class="panel-body">
+					<div class="form-group">
+						<label for="url">Url:</label> <input type="text" name="url"
+							class="form-control" value=""> <input type="hidden"
+							name="old_url" value="">
+					</div>
+					<div class="form-group">
+						<label for="interval">Interval (min):</label> <input type="number"
+							name="interval" class="form-control" value="">
+					</div>
+					<div class="checkbox">
+						<label><input type="checkbox" name="follow_links">
+							Follow Links. </label>
+					</div>
+					<div class="btn-group" role="group"
+						aria-label="save cancel delete button group">
+						<button type="button" class="btn btn-default update">Update</button>
+						<button type="button" class="btn btn-default delete">Delete</button>
+						<button type="button" class="btn btn-default cancel">Cancel</button>
+					</div>
+				</div>
+			</div></td>
+		<td>
+			<button type="button" class="btn btn-default edit-button"
+				data-placement="top">Edit</button>
+		</td>
+	</tr>
+</table>
