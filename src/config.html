@@ -38,20 +38,25 @@ $(document).ready(function()\{
 		<div class="row">
 			<div class="col-sm-6">
 				<div class="panel panel-default box">
-					<div class="panel-heading">jDLBot server configuration:</div>
+					<div class="panel-heading"><h4 class="panel-title">jDLBot server configuration:</h4></div>
 					<div class="panel-body">
 						<div class="form-group">
+							<label for="host">jDlBot http server host:</label> <input
+								type="text" name="host" class="form-control" value="{ $host }" data-toggle="tooltip"
+								title="The TCP address which the HTTP server will listen on. By default it only listens to requests from the same machine (safe). Set this to 0.0.0.0, for a public server (only recommended if you are in a trusted network behind a firewall). Requires restart to take effect.">
+						</div>
+						<div class="form-group">
 							<label for="port">jDlBot http server port:</label> <input
-								type="text" id="port" class="form-control" value="{ $port }"
+								type="text" name="port" class="form-control" value="{ $port }" data-toggle="tooltip"
 								title="If you modify this, you will need to restart jDlBot.">
 						</div>
 						<div class="checkbox">
-							<label> <input type="checkbox" id="check_update" { $check_update } >
+							<label> <input type="checkbox" name="check_update" { $check_update } >
 								jDlBot check for updates.
 							</label>
 						</div>
 						<div class="checkbox">
-							<label> <input type="checkbox" id="open_browser" { $open_browser } >
+							<label> <input type="checkbox" name="open_browser" { $open_browser } >
 								Open jDlBot web interface in default browser on startup.
 							</label>
 						</div>
@@ -61,19 +66,21 @@ $(document).ready(function()\{
 			<div class="col-sm-6">
 				<div class="panel panel-default box">
 					<div class="panel-heading">
-						JDownloader <a href=\
-							"http://jdownloader.org/knowledge/wiki/glossary/cnl2\" target=\"_blank\">Click'n'Load
-							API</a> Interface configuration:
+						<h4 class="panel-title">
+							JDownloader <a class="text-info" href=\
+								"http://jdownloader.org/knowledge/wiki/glossary/cnl2\" target=\"_blank\">Click'n'Load
+								API</a> Interface configuration:
+						</h4>
 					</div>
 					<div class="panel-body">
 						<div class="form-group">
 							<label for="jd_address">Address:</label> <input type="text"
-								id="jd_address" class="form-control" value="{ $jd_address }"
-								title="Include username/pass if necessary.  Note that this is the Web Interface and not remote control.">
+								name="jd_address" class="form-control" value="{ $jd_address }" data-toggle="tooltip"
+								title="Include username/pass if necessary.  Note that this is the click'n load Remote API Interface (called 'RemoteAPI' in the advanced configuration of jDownloader) and not my.jdownloader.org.">
 						</div>
 						<div class="form-group">
 							<label for="jd_port">Port:</label> <input type="text"
-								id="jd_port" class="form-control" value="{ $jd_port }">
+								name="jd_port" class="form-control" value="{ $jd_port }">
 						</div>
 					</div>
 				</div>

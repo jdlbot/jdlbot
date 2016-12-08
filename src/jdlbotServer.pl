@@ -50,7 +50,7 @@ my($dbh, %config, $watchers, %templates, $static, %assets);
 	my $configfile = "";
 	my $versionFlag;
 	
-	my $version = Perl::Version->new("0.1.3");
+	my $version = Perl::Version->new("0.1.4");
 	
 	# Command line startup options
 	#  Usage: jdlbotServer(.exe) [-d|--directory=dir] [-p|--port=port#] [-c|--configdir=dir] [-v|--version]
@@ -190,7 +190,7 @@ my %siteMap = (
 	'/filters' => 'Filters',
 );
 
-my $httpd = AnyEvent::HTTPD->new (host => '127.0.0.1', port => $config{'port'});
+my $httpd = AnyEvent::HTTPD->new (host => $config{'host'}, port => $config{'port'});
 	print STDERR "Server running on port: $config{'port'}\n" .
 	"Open http://127.0.0.1:$config{'port'}/ in your favorite web browser to continue.\n\n";
 	
@@ -224,7 +224,8 @@ $httpd->reg_cb (
 		if( $req->method() eq 'GET' ){
 		
 		
-		my $configHtml = $templates{'config'}->fill_in(HASH => {'port' => $config{'port'},
+		my $configHtml = $templates{'config'}->fill_in(HASH => {'host' => $config{'host'},
+																'port' => $config{'port'},
 																'jd_address' => $config{'jd_address'},
 																'jd_port' => $config{'jd_port'},
 																'check_update' => $config{'check_update'} eq 'TRUE' ? 'checked="checked"' : '',
@@ -460,7 +461,7 @@ $httpd->reg_cb (
 
 		} elsif ( $req->method() eq 'POST' ){
 			my $return = {'status' => 'failure'};
-			if( $req->parm('action') =~ /^(add|update|delete|list)$/ ){
+			if( $req->parm('action') =~ /^(add|update|delete|list|config|getconfig)$/ ){
 				my $filterParams = decode_json($req->parm('data'));
 
 				my $qh;
@@ -486,7 +487,7 @@ $httpd->reg_cb (
 					push(@values, $old_title);
 					$filterParams->{'old_title'} = $old_title;
 					$qh->execute(@values);
-					$return->{'filter'} = $filterParams;						
+					$return->{'filter'} = $filterParams;
 
 				} elsif ( $req->parm('action') eq 'delete' ){
 					$return->{'status'} = "Could not delete filter.  Incorrect title?";
@@ -498,6 +499,24 @@ $httpd->reg_cb (
 					$return->{'status'} = "Could not fetch list of filters.";
 
 					$return->{'filters'} = $dbh->selectall_arrayref(q( SELECT * FROM filters ORDER BY title ), { Slice => {} });
+
+				} elsif ( $req->parm('action') eq 'config' ){
+					$return->{'status'} = "Could not save configuration data.";
+					my $old_conf = $filterParams->{'old_conf'};
+					delete($filterParams->{'old_conf'});
+					my @fields = sort keys %$filterParams;
+					my @values = @{$filterParams}{@fields};
+					$qh = $dbh->prepare(sprintf('UPDATE filter_conf SET %s=? WHERE conf=?', join("=?, ", @fields)));
+					push(@values, $old_conf);
+					$filterParams->{'old_conf'} = $old_conf;
+					$qh->execute(@values);
+					$return->{'filter'} = $filterParams;
+
+				} elsif ( $req->parm('action') eq 'getconfig' ){
+					$return->{'status'} = "Could not fetch filter configuration.";
+
+					$return->{'filter_conf'} = $dbh->selectall_arrayref(q( SELECT * FROM filter_conf ORDER BY conf ), { Slice => {} });
+
 				}
 
 				if(!$dbh->errstr){

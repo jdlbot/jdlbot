@@ -177,17 +177,17 @@ $(document).ready(function(){
 	</div>
 	<div class="col-sm-4">
 		<div class="panel panel-default">
-			<div class="panel-heading">Add a new link type:</div>
+			<div class="panel-heading"><h4 class="panel-title">Add a new link type:</h4></div>
 			<div id="new-linktype-form" class="panel-body">
 				<div class="form-group">
 					<label for="linkhost">Host/Url fragment::</label> <input type="text"
 						name="linkhost" class="form-control" data-toggle="tooltip"
-						data-placement="right"
+						data-placement="left"
 						title="This text will be matched against the url of the links found in the rss feeds.">
 				</div>
 				<div class="form-group">
 					<label for="interval">Priority:</label> <input type="number"
-						class="form-control" data-toggle="tooltip" data-placement="right"
+						class="form-control" data-toggle="tooltip" data-placement="left"
 						name="priority" value="10"
 						title="Only the first matched link will be downloaded. Link types with lower priority values will take precedence.">
 				</div>
