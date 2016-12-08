@@ -1,5 +1,6 @@
 <script type="text/javascript">
-var updateConfig = function()\{
+var updateConfig = function(caller)\{
+	
 	var configVars = \{
 					  'port' : $('#port').val(),
 					  'check_update' : testCheckBox('#check_update'),
@@ -8,44 +9,88 @@ var updateConfig = function()\{
 					  'jd_port' : $('#jd_port').val()
 					  \};
 	$.post('/config',
-		   'action=update&data=' + escape(JSON.stringify(configVars)),
-		   function(data)\{
-				if( data.status === 'success' )\{
-					notify($('span.notify'), data.status, 'green');
-				\} else \{
-					notify($('span.notify'), data.status, 'red');
-				\}
-		   \},
-		   'json');
-\}
-
-var testCheckBox = function(s)\{
-	if ( $(s).is(':checked') )\{
-		return 'TRUE';
-	\} else \{
-		return 'FALSE';
-	\}
-\}
-
-var notify = function($id, message, color)\{
-	
-	$id.data('bt-content-orig', '');
-	//$id.attr("title", message);
-	$id.bt(message, \{
-		trigger: 'none',
-		fill: color,
-		cssStyles: \{color: '#FFF'\},
-		\});
-	$id.btOn();
+		   'action=update&data=' + escape(JSON.stringify(configVars)))
+		   .done( function(data) \{
+			   if ( data.status === "Success." ) \{
+				   notify($( '#submit' ),'',data.status,'bg-success',1000);
+		       \} else \{
+		    	   notify($( '#submit' ),'',data.status,'bg-danger',4000);
+		       \}
+		   \})
+		   .fail( function(data) \{
+			   notify($( '#submit' ),'','Connection Error','bg-danger',4000);
+		   \});
 \}
 
 $(document).ready(function()\{
-	$('input').bt();
+	$('[data-toggle="tooltip"]').tooltip();
+	$('#submit').click(function()\{
+		updateConfig( $(this) );
+	\});
+	$(function() \{
+	    $('.box').matchHeight();
+	\});
 \});
+
 </script>
-<p>jDlBot http server port: <input type="text" id="port" value="{ $port }" title="If you modify this, you will need to restart jDlBot."/></p>
-<p>jDlBot check for updates: <input type="checkbox" id="check_update" { $check_update } ></p>
-<p>Open jDlBot web interface in default browser on startup: <input type="checkbox" id="open_browser" { $open_browser } ></p>
-<p>jDownloader Web Interface address: <input type="text" id="jd_address" value="{ $jd_address }" title="Include username/pass if necessary.  Note that this is the Web Interface and not remote control." /></p>
-<p>jDownloader Web Interface port: <input type="text" id="jd_port" value="{ $jd_port }" /></p>
-<span class="notify"><input type="button" onclick="updateConfig();" value="Update Configuration" /></span>
+<div class="panel panel-default">
+	<div class="panel-body">
+		<div class="row">
+			<div class="col-sm-6">
+				<div class="panel panel-default box">
+					<div class="panel-heading"><h4 class="panel-title">jDLBot server configuration:</h4></div>
+					<div class="panel-body">
+						<div class="form-group">
+							<label for="host">jDlBot http server host:</label> <input
+								type="text" name="host" class="form-control" value="{ $host }" data-toggle="tooltip"
+								title="The TCP address which the HTTP server will listen on. By default it only listens to requests from the same machine (safe). Set this to 0.0.0.0, for a public server (only recommended if you are in a trusted network behind a firewall). Requires restart to take effect.">
+						</div>
+						<div class="form-group">
+							<label for="port">jDlBot http server port:</label> <input
+								type="text" name="port" class="form-control" value="{ $port }" data-toggle="tooltip"
+								title="If you modify this, you will need to restart jDlBot.">
+						</div>
+						<div class="checkbox">
+							<label> <input type="checkbox" name="check_update" { $check_update } >
+								jDlBot check for updates.
+							</label>
+						</div>
+						<div class="checkbox">
+							<label> <input type="checkbox" name="open_browser" { $open_browser } >
+								Open jDlBot web interface in default browser on startup.
+							</label>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="col-sm-6">
+				<div class="panel panel-default box">
+					<div class="panel-heading">
+						<h4 class="panel-title">
+							JDownloader <a class="text-info" href=\
+								"http://jdownloader.org/knowledge/wiki/glossary/cnl2\" target=\"_blank\">Click'n'Load
+								API</a> Interface configuration:
+						</h4>
+					</div>
+					<div class="panel-body">
+						<div class="form-group">
+							<label for="jd_address">Address:</label> <input type="text"
+								name="jd_address" class="form-control" value="{ $jd_address }" data-toggle="tooltip"
+								title="Include username/pass if necessary.  Note that this is the click'n load Remote API Interface (called 'RemoteAPI' in the advanced configuration of jDownloader) and not my.jdownloader.org.">
+						</div>
+						<div class="form-group">
+							<label for="jd_port">Port:</label> <input type="text"
+								name="jd_port" class="form-control" value="{ $jd_port }">
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="row">
+			<div class="col-sm-12">
+				<button type="button" id="submit" class="btn btn-primary"
+					data-toggle="popover">Update Configuration</button>
+			</div>
+		</div>
+	</div>
+</div>

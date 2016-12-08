@@ -1,22 +1,67 @@
 
+package JdlBot::Build::Mac;
+
+use strict;
+use warnings;
+
 use File::Copy;
+use File::Find;
+require Exporter;
+our @ISA = qw(Exporter);
+our @EXPORT = qw(loadTemplates loadStatic loadAssets checkConfigFile openBrowser);
 
 print "Mac include\n";
 
-sub loadSupportFiles {
-	%templates = ();
+sub loadFile {
+ 	my $path = $_[0];
+ 	my $content = PAR::read_file($path);
+ 	return $content;
+}
+
+sub loadTemplates {
+	my %templates = ();
 	$templates{'base'} = Text::Template->new(TYPE => 'STRING',  SOURCE => PAR::read_file('base.html'));
 	$templates{'config'} = Text::Template->new(TYPE => 'STRING',  SOURCE => PAR::read_file('config.html'));
 	$templates{'status'} = Text::Template->new(TYPE => 'STRING',  SOURCE => PAR::read_file('status.html'));
 	
-	$static = {};
-	$static->{'filters'} = PAR::read_file('filters.html');
-	$static->{'feeds'} = PAR::read_file('feeds.html');
-	$static->{'linktypes'} = PAR::read_file('linktypes.html');
-	$static->{'css'} = PAR::read_file('main.css');
-	$static->{'bt.js'} = PAR::read_file('jquery.bt.js');
-	$static->{'logo'} = PAR::read_file('jdlbot_logo.png');
-	$static->{'favicon'} = PAR::read_file('favicon.ico');
+	return %templates;
+}
+
+sub loadAssets {
+	my %assets = ();
+	find(sub {
+		my $content = loadFile($_) if -f;
+		my $mime;
+		if ( $_ =~ /.js$/ ) {
+			$mime = 'text/javascript';
+		} elsif ( $_ =~ /.css$/ ) {
+			$mime = 'text/css';
+		} else {
+			$mime = '';
+		}
+		$assets{"/".$File::Find::name} = sub {
+		my ($httpd, $req) = @_;
+
+		$req->respond({ content => [$mime, $content] });
+		}
+	}, 'assets/');
+	
+	
+	return %assets;
+}
+
+sub loadStatic {
+	my $static = {};
+	my @staticFiles = (
+		'filters.html',
+		'feeds.html',
+		'linktypes.html'
+	);
+	foreach my $file (@staticFiles) {
+		$static->{$file} = loadFile($file);
+	}
+
+	return $static;
 }
 
 sub checkConfigFile {
@@ -35,7 +80,8 @@ sub checkConfigFile {
 }
 
 sub openBrowser {
-	`open http://127.0.0.1:$config{'port'}/`;
+	`open http://127.0.0.1:$main::config{'port'}/`;
+	return 1;
 }
 
 1;

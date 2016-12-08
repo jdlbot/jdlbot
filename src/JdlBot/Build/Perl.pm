@@ -1,52 +1,85 @@
 
-sub loadSupportFiles {
-	%templates = ();
-	$templates{'base'} = Text::Template->new(TYPE => 'FILE',  SOURCE => 'base.html');
-	$templates{'config'} = Text::Template->new(TYPE => 'FILE',  SOURCE => 'config.html');
-	$templates{'status'} = Text::Template->new(TYPE => 'FILE',  SOURCE => 'status.html');
-	
-	$static = {};
-	open(FILTERSFILE, '<filters.html');
-	$static->{'filters'} = join("", <FILTERSFILE>);
-	close(FILTERSFILE);
-	
-	open(FEEDSFILE, '<feeds.html');
-	$static->{'feeds'} = join("", <FEEDSFILE>);
-	close(FEEDSFILE);
+package JdlBot::Build::Perl;
 
-	open(LINKTYPESFILE, '<linktypes.html');
-	$static->{'linktypes'} = join("", <LINKTYPESFILE>);
-	close(LINKTYPESFILE);
-	
-	open(CSSFILE, '<main.css');
-	$static->{'css'} = join("", <CSSFILE>);
-	close(CSSFILE);
+use strict;
+use warnings;
 
-	open(BTJSFILE, '<jquery.bt.js');
-	$static->{'bt.js'} = join("", <BTJSFILE>);
-	close(BTJSFILE);
-	
-	open(LOGOFILE, '<jdlbot_logo.png');
-	binmode(LOGOFILE);
-	$static->{'logo'} = join("", <LOGOFILE>);
-	close(LOGOFILE);
+use File::Find;
+require Exporter;
+our @ISA    = qw(Exporter);
+our @EXPORT = qw(loadTemplates loadStatic loadAssets checkConfigFile openBrowser);
 
-	open(FAVICONFILE, '<favicon.ico');
-	binmode(FAVICONFILE);
-	$static->{'favicon'} = join("", <FAVICONFILE>);
-	close(FAVICONFILE);
+sub loadFile {
+ 	my $path = $_[0];
+ 	my $file;
+ 	open( $file, '<', $path);
+ 	my $content = join( "", <$file> );
+ 	close($file);
+ 	return $content;
+}
+
+sub loadTemplates {
+	my %templates = ();
+	$templates{'base'} =
+	  Text::Template->new( TYPE => 'FILE', SOURCE => 'base.html' );
+	$templates{'config'} =
+	  Text::Template->new( TYPE => 'FILE', SOURCE => 'config.html' );
+	$templates{'status'} =
+	  Text::Template->new( TYPE => 'FILE', SOURCE => 'status.html' );
+
+	return %templates;
+}
+
+sub loadAssets {
+	my %assets = ();
+	find(sub {
+		my $content = loadFile($_) if -f;
+		my $mime;
+		if ( $_ =~ /.js$/ ) {
+			$mime = 'text/javascript';
+		} elsif ( $_ =~ /.css$/ ) {
+			$mime = 'text/css';
+		} else {
+			$mime = '';
+		}
+		$assets{"/".$File::Find::name} = sub {
+		my ($httpd, $req) = @_;
+
+		$req->respond({ content => [$mime, $content] });
+		}
+	}, 'assets/');
+	
+	
+	return %assets;
+}
+
+sub loadStatic {
+	my $static = {};
+	my @staticFiles = (
+		'filters.html',
+		'feeds.html',
+		'linktypes.html'
+	);
+	foreach my $file (@staticFiles) {
+		$static->{$file} = loadFile($file);
+	}
+
+	return $static;
 }
 
 sub checkConfigFile {
-	if ( -f 'config.sqlite' ){
+	if ( -f 'config.sqlite' ) {
 		return 'config.sqlite';
-	} else {
+	}
+	else {
 		return 0;
 	}
 }
 
 sub openBrowser {
-		#Do nothing
+
+	#Do nothing
+	return 1;
 }
 
 1;

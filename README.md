@@ -15,9 +15,9 @@ jDlBot is an RSS feed and web scraper that finds and sends links to [jDownloader
 
 1.  Make sure you have all the appropriate perl modules installed:
 
-    Run `perl -MCPAN -e 'install EV AnyEvent::HTTP AnyEvent::HTTPD Error Path::Class File::Path Text::Template XML::FeedPP Web::Scraper JSON::XS Getopt::Long Perl::Version DBIx::MultiStatementDo'`
+    Run `perl -MCPAN -e 'install EV AnyEvent::HTTP AnyEvent::HTTPD Error Path::Class File::Path Text::Template XML::FeedPP Web::Scraper JSON::XS Getopt::Long Perl::Version DBIx::MultiStatementDo List::MoreUtils'`
     
-    or `ppm install EV AnyEvent-HTTP AnyEvent-HTTPD Error Path-Class File-Path Text-Template XML-FeedPP Web-Scraper JSON-XS Getopt-Long Perl-Version DBIx-MultiStatementDo` depending on your perl distribution.
+    or `ppm install EV AnyEvent-HTTP AnyEvent-HTTPD Error Path-Class File-Path Text-Template XML-FeedPP Web-Scraper JSON-XS Getopt-Long Perl-Version DBIx-MultiStatementDo List-MoreUtils` depending on your perl distribution.
 
 2.  Clone the git repo: `git clone git://github.com/jdlbot/jdlbot.git`.
 

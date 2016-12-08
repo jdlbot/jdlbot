@@ -1,6 +1,9 @@
 
 package JdlBot::LinkHandler::JD;
 
+use strict;
+use warnings;
+
 use Web::Scraper;
 use LWP::Simple qw($ua get);
 use URI::Escape;
@@ -114,20 +117,20 @@ sub processLinks {
 				if ( $_->{name} =~ /\.part(\d+)\.rar/i ){
 					return $1;
 				} else {
-					return undef;
+					return "";
 				}
 			};
 			
 			my $test_package = sub {
 				my $package = shift;
-				if ( scalar(grep($package->{num} == $_, @high_range)) > 0 ) {
+				if ( scalar(grep {$package->{num} == $_} @high_range) > 0 ) {
 					return 1;
 				} else {
 					return 0;
 				}
 			};
 			
-			my @packages = grep($test_package->($_), @{$res->{packages}});
+			my @packages = grep {$test_package->($_)} @{$res->{packages}};
 			
 			if (scalar(@packages) == 1){
 				if ( $packages[0]->{name} =~ m/sample\.(avi|mkv)$/i ){
@@ -140,8 +143,8 @@ sub processLinks {
 			}
 			
 			PACKAGES: foreach my $package (@packages){
-				my @matches = grep(index($_->{name}, $package->{name}) == 0, @{$res->{files}});
-				my @results = sort {$a <=> $b} grep($_ ne undef, map($test_name->($_), @matches));
+				my @matches = grep {index($_->{name}, $package->{name}) == 0} @{$res->{files}};
+				my @results = sort {$a <=> $b} grep {$_ ne ""} map {$test_name->($_)} @matches;
 				
 				if ( ! @results ){ next PACKAGES; }
 				my @result_range = 1..($results[scalar(@results) - 1 >= 0 ? scalar(@results) - 1 : 0]);
@@ -177,5 +180,7 @@ sub processLinks {
 	}
 
 	print "Got to the end of JD::process\n";
+	return 0;
 }
 
+1;
